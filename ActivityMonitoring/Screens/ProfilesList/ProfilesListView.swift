@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ProfilesListView: View {
     @EnvironmentObject var mainModel: MainViewModel
+    @EnvironmentObject var themeModel: AppThemeModel
     
     var body: some View {
         NavigationStack {
@@ -27,7 +28,7 @@ struct ProfilesListView: View {
                         Text("С вами ещё никто не делится своими планами")
                             .fontWeight(.semibold)
                             .multilineTextAlignment(.center)
-                            .appCardStyle(colors: [.blue, .purple])
+                            .appCardStyle(colors: [themeModel.theme.secAccent1, themeModel.theme.secAccent2])
                             .frame(height: UIScreen.height - 300)
                     }
                 }
