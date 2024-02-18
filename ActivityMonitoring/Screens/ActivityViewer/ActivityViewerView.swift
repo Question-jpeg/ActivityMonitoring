@@ -30,20 +30,6 @@ struct ActivityViewerView: View {
         to: Date()
     )!
     
-    func isOutOfDate(config: AppTaskConfig) -> Bool {
-        var isOutOfDate = false
-        if let endAppTime = config.endTime ?? config.time {
-            let startDate = Calendar.current.date(bySettingHour: config.time!.hour, minute: config.time!.minute, second: 0, of: Date())!
-            let endDate = Calendar.current.date(
-                bySettingHour: endAppTime.hour, minute: endAppTime.minute, second: 0, of: Date())!
-            let startSeconds = Date().timeIntervalSince1970 - startDate.timeIntervalSince1970
-            let deadlineHours = (Date().timeIntervalSince1970 - endDate.timeIntervalSince1970) / 3600
-            isOutOfDate = startSeconds < 0 || deadlineHours > 1
-        }
-        
-        return isOutOfDate
-    }
-    
     func getTaskConfigsMap() -> [Int: [AppTaskConfig]] {
         let configs: [AppTaskConfig]
         var map = [Int: [AppTaskConfig]]()
@@ -105,11 +91,6 @@ struct ActivityViewerView: View {
             VStack(spacing: 0) {
                 let configsMap = getTaskConfigsMap()
                 let tasksMap = getTasksMap()
-                let outOfDateConfigs = configsMap[7]!.reduce([String: Bool]()) { partialResult, config in
-                    var partialResult = partialResult
-                    partialResult[config.id] = isOutOfDate(config: config)
-                    return partialResult
-                }
                 
                 ForEach(0..<15, id: \.self) { i in
                     let date = Calendar.current.date(byAdding: .day, value: i, to: startDate)!
@@ -128,14 +109,14 @@ struct ActivityViewerView: View {
                                 if !goals.isEmpty {
                                     TaskConfigsCardView(
                                         title: "Целевые задачи", colors: [themeModel.theme.accent1, themeModel.theme.accent2],
-                                        configs: goals, tasksMap: tasksMap[i]!, outOfDateMap: outOfDateConfigs,
+                                        configs: goals, tasksMap: tasksMap[i]!,
                                         unavailable: disabled, biggerSize: habits.isEmpty
                                     )
                                 }
                                 if !habits.isEmpty {
                                     TaskConfigsCardView(
                                         title: "Привычки", colors: [themeModel.theme.secAccent1, themeModel.theme.secAccent2],
-                                        configs: habits, tasksMap: tasksMap[i]!, outOfDateMap: outOfDateConfigs,
+                                        configs: habits, tasksMap: tasksMap[i]!,
                                         unavailable: disabled, biggerSize: goals.isEmpty
                                     )
                                 }
@@ -252,12 +233,25 @@ struct TaskConfigsCardView: View {
     let colors: [Color]
     let configs: [AppTaskConfig]
     let tasksMap: [String: AppTask]
-    let outOfDateMap: [String: Bool]
     let unavailable: Bool
     let biggerSize: Bool
     
     @State private var taskData: TaskCompletionData?
     @State private var contentSize: CGSize = .zero
+    
+    func isOutOfDate(config: AppTaskConfig) -> Bool {
+        var isOutOfDate = false
+        if let endAppTime = config.endTime ?? config.time {
+            let startDate = Calendar.current.date(bySettingHour: config.time!.hour, minute: config.time!.minute, second: 0, of: Date())!
+            let endDate = Calendar.current.date(
+                bySettingHour: endAppTime.hour, minute: endAppTime.minute, second: 0, of: Date())!
+            let startSeconds = Date().timeIntervalSince1970 - startDate.timeIntervalSince1970
+            let deadlineHours = (Date().timeIntervalSince1970 - endDate.timeIntervalSince1970) / 3600
+            isOutOfDate = startSeconds < 0 || deadlineHours > 1
+        }
+        
+        return isOutOfDate
+    }
     
     var body: some View {
         VStack {
@@ -272,22 +266,23 @@ struct TaskConfigsCardView: View {
                         let config = configs[i]
                         let completedTask = tasksMap[config.id]
                         let completedTaskId = completedTask?.id
-                        let disabled = unavailable || outOfDateMap[config.id]!
                         
                         Button {
-                            if config.imageValidation {
-                                taskData = TaskCompletionData(selectedConfig: config, task: completedTask, editable: !disabled)
-                            } else {
-                                if let completedTaskId  {
-                                    completionModel.deleteTask(id: completedTaskId, configId: config.id, isSheet: false)
+                            let disabled = unavailable || isOutOfDate(config: config)
+                            if (config.imageValidation ? (completedTaskId != nil || !disabled) : !disabled) {
+                                if config.imageValidation {
+                                    taskData = TaskCompletionData(selectedConfig: config, task: completedTask, editable: !disabled)
                                 } else {
-                                    completionModel.createTask(configId: config.id, isSheet: false)
+                                    if let completedTaskId  {
+                                        completionModel.deleteTask(id: completedTaskId, configId: config.id, isSheet: false)
+                                    } else {
+                                        completionModel.createTask(configId: config.id, isSheet: false)
+                                    }
                                 }
                             }
                         } label: {
                             TaskConfigInfoView(config: config, checked: completedTaskId != nil)
                         }
-                        .disabled(config.imageValidation ? (disabled && completedTask == nil) : disabled)
                         
                         if i != configs.count - 1 {
                             Rectangle()
@@ -356,7 +351,7 @@ struct TaskConfigInfoView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 0) {
                     if config.imageValidation {
-                        Image(systemName: "photo.fill")
+                        Image(systemName: config.onlyCommentBool ? "rectangle.and.pencil.and.ellipsis" : "photo.fill")
                     }
                     Text(config.title)
                         .multilineTextAlignment(.leading)

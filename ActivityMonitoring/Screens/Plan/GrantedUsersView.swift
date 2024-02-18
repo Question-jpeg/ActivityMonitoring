@@ -8,9 +8,11 @@
 import SwiftUI
 
 struct GrantedUsersView: View {
+    @Environment(\.dismiss) var dismiss
     @State private var searchText = ""
     @FocusState private var isFocused: Bool
     @EnvironmentObject var mainModel: MainViewModel
+    @EnvironmentObject var themeModel: AppThemeModel
     var assignConfig: AppTaskConfig? = nil
     
     var suggestions: [Suggestion] {
@@ -35,9 +37,20 @@ struct GrantedUsersView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text(assignConfig != nil ? "Назначить задачу" : "Делиться планами с")
-                .font(.title)
-                .padding(.top, 30)
+            VStack(alignment: .leading) {
+                HStack {
+                    Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Text("Готово")
+                    }
+                    .tint(themeModel.theme.tint)
+                }
+                
+                Text(assignConfig != nil ? "Назначить задачу" : "Делиться планами с")
+                    .font(.title)
+            }
             
             Button {
                 isFocused = true

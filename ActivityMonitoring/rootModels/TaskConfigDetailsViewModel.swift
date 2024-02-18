@@ -16,6 +16,7 @@ class TaskConfigDetailsViewModel: ObservableObject {
     @Published var selectedStartingFrom = Date()
     @Published var selectedTaskType = TaskType.habit
     @Published var imageValidation = false
+    @Published var onlyComment = true
     @Published var time = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date())!
     @Published var endTime = Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: Date())!
     @Published var isTime = false
@@ -52,6 +53,7 @@ class TaskConfigDetailsViewModel: ObservableObject {
             taskType: selectedTaskType,
             creationDate: AppDate.now(),
             imageValidation: imageValidation,
+            onlyComment: onlyComment,
             time: isTime ? AppTime.fromDate(time) : nil,
             endTime: isEndTime ? AppTime.fromDate(endTime) : nil,
             weekDays: selectedWeekdays
@@ -70,6 +72,7 @@ class TaskConfigDetailsViewModel: ObservableObject {
                 selectedWeekdays = taskConfig.weekDays
                 selectedTaskType = taskConfig.taskType
                 imageValidation = taskConfig.imageValidation
+                onlyComment = taskConfig.onlyCommentBool
                 completedDate = taskConfig.completedDate?.dateValue()
                 if let appTime = taskConfig.time {
                     time = Calendar.current.date(bySettingHour: appTime.hour, minute: appTime.minute, second: 0, of: Date())!
@@ -133,6 +136,7 @@ class TaskConfigDetailsViewModel: ObservableObject {
                     startingFrom: selectedStartingFrom,
                     taskType: selectedTaskType,
                     imageValidation: imageValidation,
+                    onlyComment: onlyComment,
                     time: appTime,
                     endTime: endAppTime
                 )

@@ -27,6 +27,7 @@ struct MockData {
         taskType: .habit,
         creationDate: AppDate.now(),
         imageValidation: false,
+        onlyComment: false,
         time: .init(hour: 8, minute: 0),
         endTime: .init(hour: 8, minute: 30),
         weekDays: WeekDay.allCases
@@ -40,6 +41,7 @@ struct MockData {
         taskType: .habit,
         creationDate: AppDate.now(),
         imageValidation: false,
+        onlyComment: false,
         time: nil,
         endTime: nil,
         weekDays: WeekDay.allCases
@@ -53,6 +55,7 @@ struct MockData {
         taskType: .habit,
         creationDate: AppDate.now(),
         imageValidation: false,
+        onlyComment: false,
         time: .init(hour: 8, minute: 0),
         endTime: .init(hour: 8, minute: 30),
         weekDays: WeekDay.allCases

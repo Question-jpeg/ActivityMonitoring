@@ -197,7 +197,10 @@ class MainViewModel: ObservableObject {
     }
     
     func initTasksMap(_ configs: [AppTaskConfig]) {
-        configs.forEach { tasksMap[$0.id] = [] }
+        configs.forEach {
+            tasksMap[$0.id] = []
+            renderTasksMap[$0.id] = []
+        }
     }
     
     func suggest(config: AppTaskConfig, toId: String) {
@@ -287,20 +290,24 @@ class MainViewModel: ObservableObject {
     
     func registerConfig(_ config: AppTaskConfig) {
         tasksMap[config.id] = []
+        renderTasksMap[config.id] = []
         taskConfigs.append(config)
     }
     func unregisterConfig(id: String) {
         taskConfigs.removeAll(where: { $0.id == id })
         tasksMap.removeValue(forKey: id)
+        renderTasksMap.removeValue(forKey: id)
     }
     func registerCompletion(of id: String, value: AppDate?) {
         taskConfigs[taskConfigs.firstIndex(where: { $0.id == id })!].completedDate = value
     }
     
     func registerTask(_ task: AppTask, configId: String) {
-        tasksMap[configId]!.append(task)
+        tasksMap[configId]?.append(task)
+        renderTasksMap[configId]?.append(task)
     }
     func unregisterTask(id: String, configId: String) {
-        tasksMap[configId]!.removeAll(where: { $0.id == id })
+        tasksMap[configId]?.removeAll(where: { $0.id == id })
+        renderTasksMap[configId]?.removeAll(where: { $0.id == id })
     }
 }

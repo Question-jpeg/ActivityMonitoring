@@ -264,18 +264,29 @@ struct TaskConfigDetailsView: View {
         }
         .appTextField()
         
-        Button {
-            viewModel.imageValidation.toggle()
-        } label: {
-            HStack {
-                Text("Фотоотчёт")
-                Spacer()
+        HStack {
+            Button {
+                viewModel.imageValidation.toggle()
+            } label: {
+                Text("Отчётность")
                 Image(systemName: viewModel.imageValidation ? "checkmark.square.fill" : "square")
                     .font(.title2)
                     .foregroundStyle(viewModel.imageValidation ? themeModel.theme.tint : .secondary)
+                Spacer()
             }
-            .appTextField()
+            
+            if viewModel.imageValidation {
+                Button {
+                    viewModel.onlyComment.toggle()
+                } label: {
+                    Text("Фото")
+                    Image(systemName: viewModel.onlyComment ? "square" : "checkmark.square.fill")
+                        .font(.title2)
+                        .foregroundStyle(viewModel.onlyComment ? .secondary : themeModel.theme.tint)
+                }
+            }
         }
+        .appTextField()
         .tint(.primary)
     }
     
@@ -348,7 +359,7 @@ struct TaskConfigDetailsView: View {
                             Text(suggestion != nil ? "Принять" :
                                     (toAssign ? (suggestions.count > 0 ? "Назначено \(suggestions.count)" : "Назначить") :
                                         (viewModel.createdId == nil ? "Создать" :
-                                            (viewModel.completedDate == nil ? "Завершить" : "Восстановить"))))
+                                            (viewModel.completedDate == nil ? "Завершить цикл задач" : "Восстановить"))))
                             .frame(maxWidth: .infinity)
                             .overlay {
                                 if loading {

@@ -153,9 +153,14 @@ struct AppTaskConfig: Identifiable, Codable, Hashable {
     let taskType: TaskType
     let creationDate: AppDate
     let imageValidation: Bool
+    var onlyComment: Bool?
     let time: AppTime?
     let endTime: AppTime?
     let weekDays: [WeekDay]
+    
+    var onlyCommentBool: Bool {
+        onlyComment ?? false
+    }
     
     static func sortFunction(config1: AppTaskConfig, config2: AppTaskConfig) -> Bool {
         let time1 = config1.time

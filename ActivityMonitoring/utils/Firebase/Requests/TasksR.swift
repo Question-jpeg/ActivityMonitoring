@@ -16,6 +16,7 @@ extension FirebaseConstants {
         startingFrom: Date,
         taskType: TaskType,
         imageValidation: Bool,
+        onlyComment: Bool,
         time: AppTime?,
         endTime: AppTime?
         ) async throws -> AppTaskConfig {
@@ -29,6 +30,7 @@ extension FirebaseConstants {
             taskType: taskType,
             creationDate: AppDate.now(),
             imageValidation: imageValidation,
+            onlyComment: onlyComment,
             time: time,
             endTime: endTime,
             weekDays: weekDays
