@@ -15,6 +15,7 @@ class TaskCompletionViewModel: ObservableObject {
     @Published var createdUrls = [String]()
     @Published var createdId: String?
     
+    var loadingIds = [String]()
     @Published var loading = false
     @Published var errorMessage: String?
     
@@ -34,9 +35,12 @@ class TaskCompletionViewModel: ObservableObject {
     }
     
     func createTask(configId: String, isSheet: Bool) {
+        guard !loadingIds.contains(configId) else { return }
+        
+        loadingIds.append(configId)
         loading = true
         Task {
-            defer { loading = false }
+            defer { loadingIds.removeAll(where: { $0 == configId }); loading = false }
             
             let tempId = UUID().uuidString
             do {
@@ -56,11 +60,12 @@ class TaskCompletionViewModel: ObservableObject {
     }
     
     func deleteTask(id: String, configId: String, isSheet: Bool) {
-        guard loading == false else { return }
+        guard !loadingIds.contains(configId) else { return }
         
+        loadingIds.append(configId)
         loading = true
         Task {
-            defer { loading = false }
+            defer { loadingIds.removeAll(where: { $0 == configId }); loading = false }
             let removedTask = mainModel.tasksMap[configId]!.first(where: { $0.id == id })!
             do {
                 mainModel.unregisterTask(id: id, configId: configId)

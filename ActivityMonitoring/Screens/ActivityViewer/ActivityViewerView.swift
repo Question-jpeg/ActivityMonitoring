@@ -283,6 +283,7 @@ struct TaskConfigsCardView: View {
                         } label: {
                             TaskConfigInfoView(config: config, checked: completedTaskId != nil)
                         }
+                        .disabled(completionModel.loadingIds.contains(config.id))
                         
                         if i != configs.count - 1 {
                             Rectangle()
