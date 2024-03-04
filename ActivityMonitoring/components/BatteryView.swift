@@ -33,22 +33,23 @@ struct BatteryView: View {
                 }
                 
                 Text(Int(percentage*100).formatted())
-                    .fontWeight(.bold)
+                    .fontWeight(.semibold)
                 
                 Text("%")
                     .font(.footnote)
             }
             .frame(maxWidth: flex ? .infinity : 50)
-            .shadow(color: .black, radius: 0.5)
-            .shadow(color: .black, radius: 0.5)
-            .shadow(color: .black, radius: 0.5)
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .background(
                 GeometryReader { geo in
-                    Rectangle()
-                        .fill(color)
-                        .frame(width: geo.size.width*percentage)
+                    ZStack(alignment: .leading) {
+                        Rectangle()
+                            .fill(Color(.systemGray3))
+                        Rectangle()
+                            .fill(color)
+                            .frame(width: geo.size.width*percentage)
+                    }
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: 5))
