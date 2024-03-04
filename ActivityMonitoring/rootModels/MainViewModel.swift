@@ -57,7 +57,12 @@ class MainViewModel: ObservableObject {
     
     var tasksCountsMap: [String: (targetCount: Int, completedCount: Int)] {
         var map = [String: (targetCount: Int, completedCount: Int)]()
-        taskConfigs.forEach { map[$0.id] = $0.getTasksCountData(tasks: tasksMap[$0.id]!) }
+        taskConfigs.forEach {
+            if map[$0.groupId] == nil { map[$0.groupId] = (0, 0) }
+            let data = $0.getTasksCountData(tasks: tasksMap[$0.id]!)
+            map[$0.groupId]!.targetCount += data.targetCount
+            map[$0.groupId]!.completedCount += data.completedCount
+        }
         return map
     }
     
@@ -69,7 +74,12 @@ class MainViewModel: ObservableObject {
     
     var viewingTasksCountsMap: [String: (targetCount: Int, completedCount: Int)] {
         var map = [String: (targetCount: Int, completedCount: Int)]()
-        viewingTaskConfigs.forEach { map[$0.id] = $0.getTasksCountData(tasks: viewingTasksMap[$0.id]!) }
+        viewingTaskConfigs.forEach {
+            if map[$0.groupId] == nil { map[$0.groupId] = (0, 0) }
+            let data = $0.getTasksCountData(tasks: viewingTasksMap[$0.id]!)
+            map[$0.groupId]!.targetCount += data.targetCount
+            map[$0.groupId]!.completedCount += data.completedCount
+        }
         return map
     }
     
@@ -293,11 +303,22 @@ class MainViewModel: ObservableObject {
         renderTasksMap[config.id] = []
         taskConfigs.append(config)
     }
-    func unregisterConfig(id: String) {
-        taskConfigs.removeAll(where: { $0.id == id })
-        tasksMap.removeValue(forKey: id)
-        renderTasksMap.removeValue(forKey: id)
+    
+    func registerConfigUpdate(_ id: String, completedDate: AppDate) {
+        let index = taskConfigs.firstIndex(where: { $0.id == id })!
+        taskConfigs[index].completedDate = completedDate
+        taskConfigs[index].isHidden = true
     }
+    
+    func unregisterConfigGroup(id: String) {
+        let toRemove = Set(taskConfigs.filter { $0.groupId == id })
+        taskConfigs.removeAll(where: { toRemove.contains($0) })
+        toRemove.forEach {
+            tasksMap.removeValue(forKey: $0.id)
+            renderTasksMap.removeValue(forKey: $0.id)
+        }
+    }
+    
     func registerCompletion(of id: String, value: AppDate?) {
         taskConfigs[taskConfigs.firstIndex(where: { $0.id == id })!].completedDate = value
     }
@@ -309,5 +330,13 @@ class MainViewModel: ObservableObject {
     func unregisterTask(id: String, configId: String) {
         tasksMap[configId]?.removeAll(where: { $0.id == id })
         renderTasksMap[configId]?.removeAll(where: { $0.id == id })
+    }
+    
+    func registerTaskProgress(id: String, configId: String, value: Int) {
+        let index = tasksMap[configId]!.firstIndex(where: { $0.id == id })!
+        let indexRender = renderTasksMap[configId]!.firstIndex(where: { $0.id == id })!
+        
+        tasksMap[configId]![index].progress = value
+        renderTasksMap[configId]![indexRender].progress = value
     }
 }

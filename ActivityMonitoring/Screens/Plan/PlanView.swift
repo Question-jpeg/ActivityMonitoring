@@ -28,13 +28,13 @@ struct PlanView: View {
     
     var taskConfigs: [AppTaskConfig] {
         return (isFinished ?
-                allConfigs.filter { $0.completedDate != nil } :
-                allConfigs.filter { $0.completedDate == nil }
+                allConfigs.filter { $0.isCompleted  } :
+                allConfigs.filter { !$0.isCompleted }
         ).sorted(by: { AppTaskConfig.sortFunction(config1: $0, config2: $1) })
     }
     
     var allConfigs: [AppTaskConfig] {
-        user == nil ? mainModel.taskConfigs : mainModel.viewingTaskConfigs
+        (user == nil ? mainModel.taskConfigs : mainModel.viewingTaskConfigs).filter { !$0.isHidden }
     }
     
     var tasksMap: [String: [AppTask]] {
@@ -73,7 +73,7 @@ struct PlanView: View {
         VStack {
             if let user {
                 Rectangle()
-                    .fill(LinearGradient(colors: [Color(.systemGray2), Color(.systemGray4)], startPoint: .leading, endPoint: .trailing))
+                    .fill(LinearGradient(colors: [themeModel.theme.secAccent1, themeModel.theme.secAccent2], startPoint: .leading, endPoint: .trailing))
                     .frame(height: 100)
                     .overlay {
                         UserCell(user: user, isLink: false, isBack: true, isBottomPresenting: true) {
@@ -162,7 +162,7 @@ struct PlanView: View {
                 )
                 .tag(0)
                 TaskListView(
-                    taskConfigs: taskConfigs.filter { $0.taskType == .habit },
+                    taskConfigs: taskConfigs.filter { $0.taskType != .goal },
                     tasksCountsMap: ratingMap,
                     isFinished: isFinished,
                     creatingNewTask: $creatingNewTask,
@@ -248,7 +248,7 @@ struct TaskListView: View {
         ScrollView {
             VStack {
                 ForEach(taskConfigs) { taskConfig in
-                    let (targetCount, completedCount) = tasksCountsMap[taskConfig.id]!
+                    let (targetCount, completedCount) = tasksCountsMap[taskConfig.groupId]!
                     NavigationLink(value: taskConfig) {
                         TaskConfigInfoView(
                             config: taskConfig,

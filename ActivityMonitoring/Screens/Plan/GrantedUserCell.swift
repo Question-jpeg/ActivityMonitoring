@@ -9,6 +9,8 @@ import SwiftUI
 import Kingfisher
 
 struct GrantedUserCell: View {
+    @EnvironmentObject var themeModel: AppThemeModel
+    
     let user: User
     
     var body: some View {
@@ -24,14 +26,15 @@ struct GrantedUserCell: View {
             Text(user.name)
                 .font(.footnote)
                 .multilineTextAlignment(.center)
+                .foregroundStyle(.white)
         }
         .frame(width: 80)
         .padding(.vertical, 10)
         .padding(.horizontal, 5)
         .background(LinearGradient(
             colors: [
-                Color(.systemGray4),
-                Color(.systemGray6)
+                themeModel.theme.secAccent1,
+                themeModel.theme.secAccent2
             ],
             startPoint: .leading, endPoint: .trailing))
         .clipShape(RoundedRectangle(cornerRadius: 10))

@@ -44,7 +44,7 @@ struct TaskCompletionDetailsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
             
-            if !isFocused && !config.onlyCommentBool {
+            if !isFocused && !config.onlyComment {
                 TabView {
                     ForEach(0..<(viewModel.createdUrls.isEmpty ?
                                  viewModel.images.count :
@@ -64,7 +64,7 @@ struct TaskCompletionDetailsView: View {
             }
             
             if viewModel.createdId == nil && editable {
-                if !isFocused && !config.onlyCommentBool {
+                if !isFocused && !config.onlyComment {
                     Button {
                         showingImagePicker = true
                     } label: {
@@ -114,9 +114,9 @@ struct TaskCompletionDetailsView: View {
                     }
                     
                     Button {
-                        if !config.onlyCommentBool && viewModel.images.isEmpty {
+                        if !config.onlyComment && viewModel.images.isEmpty {
                             viewModel.errorMessage = "Добавьте фотографии"
-                        } else if config.onlyCommentBool && viewModel.comment.isEmpty {
+                        } else if config.onlyComment && viewModel.comment.isEmpty {
                             viewModel.errorMessage = "Добавьте комментарий"
                         } else {
                             viewModel.createTask(configId: config.id, isSheet: true)

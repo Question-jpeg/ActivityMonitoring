@@ -8,7 +8,7 @@
 import SwiftUI
 
 enum TaskType: Int, CaseIterable, Codable {
-    case habit, goal
+    case tracker, goal, habit
     
     var title: String {
         switch self {
@@ -16,6 +16,19 @@ enum TaskType: Int, CaseIterable, Codable {
             return "Привычка"
         case .goal:
             return "Цель"
+        case .tracker:
+            return "Трекер"
+        }
+    }
+    
+    var cardTitle: String {
+        switch self {
+        case .habit:
+            return "Привычки"
+        case .goal:
+            return "Целевые задачи"
+        case .tracker:
+            return "Трекеры"
         }
     }
     
@@ -25,6 +38,8 @@ enum TaskType: Int, CaseIterable, Codable {
             return Image(systemName: "arrow.triangle.2.circlepath")
         case .goal:
             return Image(systemName: "scope")
+        case .tracker:
+            return Image(systemName: "checkmark.circle.fill")
         }
     }
 }
@@ -91,23 +106,31 @@ enum WeekDay: Int, CaseIterable, Codable {
     }
 }
 
-struct CloseTaskUpdate: Codable {
-    let completedDate: AppDate
-}
-
-struct UpdateNotificate: Codable {
-    let notificate: Bool
-}
-
-struct AppTaskConfigUpdate: Codable {
-    let title: String
-    let description: String
-    let taskType: TaskType
-}
-
-struct AppTime: Codable, Hashable {
+struct AppTime: Codable, Hashable, Comparable {
+    static func < (lhs: AppTime, rhs: AppTime) -> Bool {
+        lhs.hour*60+lhs.minute < rhs.hour*60+rhs.minute
+    }
+    
     let hour: Int
     let minute: Int
+    
+    func dateValue() -> Date {
+        Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date())!
+    }
+    
+    func getDistanceTo(_ other: Self) -> Int {
+        (other.hour-hour)*60+(other.minute-minute)
+    }
+    
+    func add(_ distance: Int) -> Self {
+        let hours: Int = distance / 60
+        let minutes: Int = distance-hours*60
+        
+        let resultHour: Int = max(0, min(23, hour + hours + (minute + minutes) / 60))
+        let resultMinute = (minute + minutes) % 60
+        
+        return AppTime(hour: resultHour, minute: resultMinute)
+    }
     
     static func fromDate(_ date: Date) -> Self {
         let c = Calendar.current.dateComponents([.hour, .minute], from: date)
@@ -144,23 +167,34 @@ struct AppDate: Codable, Hashable {
     }
 }
 
+struct CloseTaskUpdate: Codable {
+    let completedDate: AppDate
+}
+
+struct UpdateTaskConfigParent: Encodable {
+    let completedDate: AppDate
+    let isHidden = true
+}
+
 struct AppTaskConfig: Identifiable, Codable, Hashable {
     var id: String
-    let title: String
-    let description: String
+    var groupId: String
+    var title: String
+    var description: String
     var startingFrom: AppDate
     var completedDate: AppDate?
-    let taskType: TaskType
-    let creationDate: AppDate
-    let imageValidation: Bool
-    var onlyComment: Bool?
-    let time: AppTime?
-    let endTime: AppTime?
-    let weekDays: [WeekDay]
-    
-    var onlyCommentBool: Bool {
-        onlyComment ?? false
-    }
+    var taskType: TaskType
+    var creationDate: AppDate
+    var imageValidation: Bool
+    var onlyComment: Bool
+    var time: AppTime?
+    var endTime: AppTime?
+    var isMomental: Bool
+    var isHidden: Bool
+    var maxProgress: Int
+    var edgeProgress: Int
+    var toFill: Bool
+    var weekDays: Set<WeekDay>
     
     static func sortFunction(config1: AppTaskConfig, config2: AppTaskConfig) -> Bool {
         let time1 = config1.time
@@ -195,11 +229,13 @@ struct AppTaskConfig: Identifiable, Codable, Hashable {
         let start = startingFrom.dateValue()
         var endDate = Date()
         var toAdd = 0
-        let completedDate = completedDate?.dateValue()
-        if let completedDateValue = completedDate {
-            endDate = completedDateValue
+        if isCompleted {
+            endDate = completedDate!.dateValue()
             toAdd = 1
         }
+        
+        guard Calendar.current.differenceInDays(from: start, to: endDate) >= 0 else { return (0, 0) }
+        
         let daysDiff = max(0, Calendar.current.differenceInDays(from: start, to: endDate)) + toAdd
         
         let circles = daysDiff / 7
@@ -214,10 +250,11 @@ struct AppTaskConfig: Identifiable, Codable, Hashable {
         
         let targetCount = circles*weekDays.count + remainderCount
         
-        let completedCount = tasks.filter {
-            completedDate != nil ||
-            !Calendar.current.isDateInToday($0.completedDate.dateValue())
+        var completedCount = tasks.filter {
+            (isCompleted || !Calendar.current.isDateInToday($0.completedDate.dateValue())) &&
+            (taskType != .tracker || ($0.progress >= edgeProgress))
         }.count
+        if taskType == .tracker && !toFill { completedCount = targetCount - completedCount }
         
         return (targetCount, completedCount)
     }
@@ -235,6 +272,28 @@ struct AppTaskConfig: Identifiable, Codable, Hashable {
         }
         return ""
     }
+    
+    var isOutOfDate: Bool {
+        var isOutOfDate = false
+        if let endAppTime = endTime ?? time {
+            let startDate = time!.dateValue()
+            let endDate = endAppTime.dateValue()
+            let startSeconds = Date().timeIntervalSince1970 - startDate.timeIntervalSince1970
+            let deadlineHours = (Date().timeIntervalSince1970 - endDate.timeIntervalSince1970) / 3600
+            isOutOfDate = startSeconds < 0 || deadlineHours > (isMomental ? 0 : 2)
+        }
+        
+        return isOutOfDate
+    }
+    
+    var isCompleted: Bool {
+        guard let completedDate else { return false }
+        return taskType != .goal || Calendar.current.differenceInDays(from: completedDate.dateValue(), to: Date()) > 0
+    }
+}
+
+struct AppTaskProgressUpdate: Codable {
+    var progress: Int
 }
 
 struct AppTask: Identifiable, Codable, Hashable {
@@ -242,8 +301,5 @@ struct AppTask: Identifiable, Codable, Hashable {
     let completedDate: AppDate
     let imageUrls: [String]
     var comment: String
+    var progress: Int
 }
-
-// получаем список всех конфигов и задач
-// цикл -неделя 0 неделя item = date
-// проверить вписывать ли конфиг по repeatInDays, startingFrom, item <= completedDate

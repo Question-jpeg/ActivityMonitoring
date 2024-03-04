@@ -23,11 +23,11 @@ struct TaskConfigDetailsView: View {
     
     @FocusState private var focus: TaskConfigField?
     @State private var showingDeleteAlert = false
+    @State private var showingCompleteAlert = false
     @State private var showingAssign = false
-    @State private var comment = ""
     
     var suggestions: [Suggestion] {
-        (suggestionId == nil && toAssign) ? mainModel.sentSuggestions.filter { $0.config.id == viewModel.createdId } : []
+        (suggestionId == nil && toAssign) ? mainModel.sentSuggestions.filter { $0.config.id == viewModel.instance.id } : []
     }
     
     var suggestion: Suggestion? {
@@ -48,23 +48,20 @@ struct TaskConfigDetailsView: View {
     }
     
     var isValid: Bool {
-        !viewModel.title.isEmpty &&
-        !viewModel.selectedWeekdays.isEmpty &&
-        (!(viewModel.isTime && viewModel.isEndTime) || viewModel.endTime > viewModel.time)
+        !viewModel.instance.title.isEmpty &&
+        (viewModel.instance.taskType != .habit || !viewModel.instance.weekDays.isEmpty) &&
+        ((viewModel.instance.time == nil || viewModel.instance.endTime == nil) || viewModel.instance.endTime! > viewModel.instance.time!) &&
+        Calendar.current.differenceInDays(from: Date(), to: viewModel.instance.startingFrom.dateValue()) >= 0
     }
     
     var loading: Bool {
         viewModel.loading || mainModel.loadingId != nil
     }
     
-    var disabled: Bool {
-        viewModel.createdId != nil || viewModel.loading
-    }
-    
     var colorsForButton: [Color] {
-        if loading || viewModel.completedDate != nil { return [Color(.systemGray), Color(.systemGray4)] }
+        if loading || viewModel.instance.isCompleted { return [Color(.systemGray), Color(.systemGray4)] }
         if toAssign { return [themeModel.theme.secAccent1, themeModel.theme.secAccent2] }
-        if viewModel.createdId == nil { return [themeModel.theme.accent1, themeModel.theme.accent2] }
+        if viewModel.instance.id.isEmpty { return [themeModel.theme.accent1, themeModel.theme.accent2] }
         return [themeModel.theme.complete1, themeModel.theme.complete2]
     }
     
@@ -80,7 +77,7 @@ struct TaskConfigDetailsView: View {
             
             Spacer()
             
-            Text(viewModel.createdId == nil ? "Создать задачу" :  (viewModel.completedDate == nil ? "Просмотр задачи" : "Завершённая задача"))
+            Text(viewModel.instance.id.isEmpty ? "Создать задачу" :  (viewModel.instance.isCompleted ? "Завершённая задача" : "Просмотр задачи"))
                 .font(.title)
             
             Spacer()
@@ -92,20 +89,26 @@ struct TaskConfigDetailsView: View {
     }
     
     @ViewBuilder var timeView: some View {
-        
         HStack {
             Button {
-                viewModel.isTime.toggle()
+                if viewModel.instance.time == nil {
+                    viewModel.instance.time = viewModel.lastTime
+                } else {
+                    viewModel.lastTime = viewModel.instance.time!
+                    viewModel.instance.time = nil
+                    viewModel.instance.endTime = nil
+                    viewModel.instance.isMomental = false
+                }
             } label: {
                 Text("Время")
-                Image(systemName: viewModel.isTime ? "checkmark.square.fill" : "square")
+                Image(systemName: viewModel.instance.time != nil ? "checkmark.square.fill" : "square")
                     .font(.title2)
-                    .foregroundStyle(viewModel.isTime ? themeModel.theme.tint : .secondary)
+                    .foregroundStyle(viewModel.instance.time != nil ? themeModel.theme.tint : .secondary)
             }
             Spacer()
             
-            if viewModel.isTime {
-                if viewModel.completedDate == nil && !toAssign {
+            if viewModel.instance.time != nil {
+                if viewModel.instance.id.isEmpty && !toAssign {
                     Button {
                         viewModel.notificate.toggle()
                     } label: {
@@ -116,7 +119,16 @@ struct TaskConfigDetailsView: View {
                     .disabled(viewModel.loading)
                 }
                 
-                DatePicker("", selection: $viewModel.time, displayedComponents: .hourAndMinute)
+                DatePicker("", selection: Binding(
+                        get: { viewModel.instance.time!.dateValue() },
+                        set: {
+                            viewModel.instance.time = AppTime.fromDate($0)
+                            if viewModel.instance.endTime != nil {
+                                viewModel.instance.endTime = viewModel.instance.time?.add(viewModel.lastInterval)
+                            }
+                        }),
+                    displayedComponents: .hourAndMinute
+                )
                     .frame(width: 90)
             }
         }
@@ -124,21 +136,39 @@ struct TaskConfigDetailsView: View {
         .appTextField()
         .tint(.primary)
         
-        if viewModel.isTime {
+        if viewModel.instance.time != nil {
             HStack {
                 Button {
-                    viewModel.endTime = Calendar.current.date(byAdding: .minute, value: 30, to: viewModel.time)!
-                    viewModel.isEndTime.toggle()
+                    if viewModel.instance.endTime == nil {
+                        viewModel.instance.endTime = viewModel.instance.time!.add(viewModel.lastInterval)
+                    } else {
+                        viewModel.instance.endTime = nil
+                        viewModel.instance.isMomental = false
+                    }
                 } label: {
                     Text("Время окончания")
-                    Image(systemName: viewModel.isEndTime ? "checkmark.square.fill" : "square")
+                    Image(systemName: viewModel.instance.endTime != nil ? "checkmark.square.fill" : "square")
                         .font(.title2)
-                        .foregroundStyle(viewModel.isEndTime ? themeModel.theme.tint : .secondary)
+                        .foregroundStyle(viewModel.instance.endTime != nil ? themeModel.theme.tint : .secondary)
                 }
                 Spacer()
                 
-                if viewModel.isEndTime {
-                    DatePicker("", selection: $viewModel.endTime, displayedComponents: .hourAndMinute)
+                if let endTime = viewModel.instance.endTime {
+                    Button {
+                        viewModel.instance.isMomental.toggle()
+                    } label: {
+                        Image(systemName: viewModel.instance.isMomental ? "bolt.fill" : "bolt")
+                            .font(.title2)
+                            .foregroundStyle(viewModel.instance.isMomental ? themeModel.theme.tint : .secondary)
+                    }
+                    DatePicker("", selection: Binding(
+                            get: { endTime.dateValue() },
+                            set: { 
+                                viewModel.instance.endTime = AppTime.fromDate($0)
+                                viewModel.lastInterval = viewModel.instance.time!.getDistanceTo(viewModel.instance.endTime!)
+                            }),
+                        displayedComponents: .hourAndMinute
+                    )
                         .frame(width: 90)
                 }
             }
@@ -152,7 +182,7 @@ struct TaskConfigDetailsView: View {
         Button {
             focus = .title
         } label: {
-            TextField("Название", text: $viewModel.title)
+            TextField("Название", text: $viewModel.instance.title)
                 .focused($focus, equals: .title)
                 .submitLabel(.next)
                 .onSubmit { focus = .description }
@@ -162,7 +192,7 @@ struct TaskConfigDetailsView: View {
         Button {
             focus = .description
         } label: {
-            TextField("Описание", text: $viewModel.description)
+            TextField("Описание", text: $viewModel.instance.description)
                 .focused($focus, equals: .description)
                 .submitLabel(.continue)
                 .appTextField()
@@ -170,7 +200,6 @@ struct TaskConfigDetailsView: View {
     }
     
     @ViewBuilder var configView: some View {
-        
         if let suggestion {
             SuggestionCell(suggestion: suggestion, isShowingBell: !toAssign, bellState: viewModel.notificate) {
                 viewModel.notificate.toggle()
@@ -178,13 +207,13 @@ struct TaskConfigDetailsView: View {
         } else {
             HStack {
                 TaskConfigInfoView(
-                    config: viewModel.config,
+                    config: viewModel.instance,
                     showingTaskType: true
                 )
                 
                 Spacer()
                 
-                if viewModel.completedDate == nil && viewModel.isTime && !toAssign {
+                if !viewModel.instance.isCompleted && viewModel.instance.time != nil && !toAssign {
                     Button {
                         viewModel.setNotificate(!viewModel.notificate)
                     } label: {
@@ -203,57 +232,63 @@ struct TaskConfigDetailsView: View {
     @ViewBuilder var shortOptionsView: some View {
         VStack {
             HStack {
-                Text("Начиная с")
+                Text(viewModel.instance.taskType != .goal ? "Начиная с" : "Назначая на")
                 Spacer()
-                DatePicker("", selection: $viewModel.selectedStartingFrom, displayedComponents: .date)
-                    .environment(\.locale, Locale.init(identifier: "ru_RU"))
+                DatePicker("", selection: Binding(
+                    get: { viewModel.instance.startingFrom.dateValue() },
+                    set: { viewModel.instance.startingFrom = AppDate.fromDate($0) }),
+                    in: Date()...,
+                    displayedComponents: .date
+                )
+                .environment(\.locale, Locale.init(identifier: "ru_RU"))
             }
             .appTextField()
             
-            VStack(spacing: 0) {
-                Button {
-                    if viewModel.isEveryday { viewModel.selectedWeekdays = [] }
-                    else { viewModel.selectedWeekdays = WeekDay.allCases }
-                } label: {
-                    HStack {
-                        Text("Ежедневно")
-                        Image(systemName: viewModel.isEveryday ? "checkmark.square.fill" : "square")
-                            .foregroundStyle(viewModel.isEveryday ? themeModel.theme.tint : .secondary)
+            if viewModel.instance.taskType == .habit {
+                VStack(spacing: 0) {
+                    Button {
+                        if viewModel.isEveryday { viewModel.instance.weekDays = [] }
+                        else { viewModel.instance.weekDays = Set(WeekDay.allCases) }
+                    } label: {
+                        HStack {
+                            Text("Ежедневно")
+                            Image(systemName: viewModel.isEveryday ? "checkmark.square.fill" : "square")
+                                .foregroundStyle(viewModel.isEveryday ? themeModel.theme.tint : .secondary)
+                        }
                     }
-                }
-                .foregroundStyle(.secondary)
-                .padding(.bottom, 10)
-                
-                HStack {
-                    ForEach(WeekDay.allCases, id: \.self) { weekday in
-                        let isSelected = viewModel.selectedWeekdays.contains(weekday)
-                        Button {
-                            if isSelected { viewModel.selectedWeekdays.removeAll(where: { $0 == weekday }) }
-                            else { viewModel.selectedWeekdays.append(weekday) }
-                        } label: {
-                            Text(weekday.title)
-                                .font(.subheadline)
-                                .lineLimit(1)
-                                .foregroundStyle(isSelected ? .white : .primary)
-                                .padding(10)
-                                .background(isSelected ? themeModel.theme.tint : Color(.systemGray5))
-                                .clipShape(Circle())
+                    .foregroundStyle(.secondary)
+                    .padding(.bottom, 10)
+                    
+                    HStack {
+                        ForEach(WeekDay.allCases, id: \.self) { weekday in
+                            let isSelected = viewModel.instance.weekDays.contains(weekday)
+                            Button {
+                                if isSelected { viewModel.instance.weekDays.remove(weekday) }
+                                else { viewModel.instance.weekDays.insert(weekday) }
+                            } label: {
+                                Text(weekday.title)
+                                    .font(.subheadline)
+                                    .lineLimit(1)
+                                    .foregroundStyle(isSelected ? .white : .primary)
+                                    .padding(10)
+                                    .background(isSelected ? themeModel.theme.tint : Color(.systemGray5))
+                                    .clipShape(Circle())
+                            }
                         }
                     }
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.top, -10)
+                .appTextField()
             }
-            .frame(maxWidth: .infinity)
-            .padding(.top, -10)
-            .appTextField()
         }
-        .disabled(disabled)
     }
     
-    @ViewBuilder var typeAndImageOptions: some View {
+    @ViewBuilder var typeOption: some View {
         HStack {
             Text("Тип")
             Spacer()
-            Picker("", selection: $viewModel.selectedTaskType) {
+            Picker("", selection: $viewModel.instance.taskType) {
                 ForEach(TaskType.allCases, id: \.self) { type in
                     HStack {
                         Text(type.title)
@@ -263,26 +298,29 @@ struct TaskConfigDetailsView: View {
             }
         }
         .appTextField()
-        
+    }
+    
+    @ViewBuilder var imageOption: some View {
         HStack {
             Button {
-                viewModel.imageValidation.toggle()
+                viewModel.instance.imageValidation.toggle()
             } label: {
                 Text("Отчётность")
-                Image(systemName: viewModel.imageValidation ? "checkmark.square.fill" : "square")
+                Image(systemName: viewModel.instance.imageValidation ? "checkmark.square.fill" : "square")
                     .font(.title2)
-                    .foregroundStyle(viewModel.imageValidation ? themeModel.theme.tint : .secondary)
+                    .foregroundStyle(viewModel.instance.imageValidation ? themeModel.theme.tint : .secondary)
                 Spacer()
             }
             
-            if viewModel.imageValidation {
+            if viewModel.instance.imageValidation {
                 Button {
-                    viewModel.onlyComment.toggle()
+                    if viewModel.instance.onlyComment { viewModel.instance.onlyComment = false }
+                    else { viewModel.instance.onlyComment = true }
                 } label: {
                     Text("Фото")
-                    Image(systemName: viewModel.onlyComment ? "square" : "checkmark.square.fill")
+                    Image(systemName: viewModel.instance.onlyComment ? "square" : "checkmark.square.fill")
                         .font(.title2)
-                        .foregroundStyle(viewModel.onlyComment ? .secondary : themeModel.theme.tint)
+                        .foregroundStyle(viewModel.instance.onlyComment ? .secondary : themeModel.theme.tint)
                 }
             }
         }
@@ -291,66 +329,143 @@ struct TaskConfigDetailsView: View {
     }
     
     @ViewBuilder var commentView: some View {
-        if let suggestion {
-            if !suggestion.isSending || !suggestion.comment.isEmpty {
-                Button {
-                    focus = .comment
-                } label: {
-                    VStack(alignment: .leading) {
-                        if suggestion.isSending {
-                            Text("Комментарий от получателя:")
-                                .foregroundStyle(.secondary)
-                                .font(.footnote)
-                        }
-                        TextField("Добавить комментарий отправителю", text: suggestion.comment.isEmpty ? $comment : .constant(suggestion.comment))
-                            .focused($focus, equals: .comment)
-                            .appTextField()
-                    }
+        Button {
+            focus = .comment
+        } label: {
+            VStack(alignment: .leading) {
+                if suggestion!.isSending {
+                    Text("Комментарий от получателя:")
+                        .foregroundStyle(.secondary)
+                        .font(.footnote)
                 }
-                .disabled(suggestion.isSending)
-                .padding(.top)
+                TextField("Добавить комментарий отправителю", text: suggestion!.comment.isEmpty ? $viewModel.comment : .constant(suggestion!.comment))
+                    .focused($focus, equals: .comment)
+                    .appTextField()
             }
         }
+        .disabled(suggestion!.isSending)
+        .padding(.top)
+    }
+    
+    @ViewBuilder var trackerView: some View {
+        VStack {
+            Text("Количество делений: \(viewModel.instance.maxProgress.formatted())")
+                .foregroundStyle(.secondary)
+            Slider(value: Binding(get: {
+                Double(viewModel.instance.maxProgress)
+            }, set: {
+                let value = Int($0)
+                viewModel.instance.maxProgress = value
+                if value < viewModel.instance.edgeProgress { viewModel.instance.edgeProgress = value }
+            }), in: 3...10)
+        }
+        .appTextField()
+        
+        VStack {
+            Text("Граница выполнения: \(viewModel.instance.edgeProgress.formatted())")
+                .foregroundStyle(.secondary)
+            Slider(value: Binding(get: {
+                Double(viewModel.instance.edgeProgress)
+            }, set: {
+                viewModel.instance.edgeProgress = Int($0)
+            }), in: 2...Double(viewModel.instance.maxProgress))
+        }
+        .appTextField()
+        
+        Picker("", selection: $viewModel.instance.toFill) {
+            Text("Больше - хуже")
+                .tag(false)
+            Text("Больше - лучше")
+                .tag(true)
+        }
+        .pickerStyle(.segmented)
     }
     
     var body: some View {
         ScrollView {
             VStack {
                 titleView
-                if viewModel.createdId != nil {
+                if !viewModel.instance.id.isEmpty {
                     configView
                 }
-                if viewModel.createdId == nil {
-                    timeView
+                
+                if viewModel.instance.id.isEmpty {
+                    typeOption
+                }
+                
+                if suggestion == nil && !viewModel.instance.isCompleted {
+                    if viewModel.instance.taskType != .tracker {
+                        timeView
+                    }
                     fieldsView
+                    
+                    if viewModel.instance.taskType == .tracker {
+                        trackerView
+                    }
                 }
+                                
                 shortOptionsView
-                if viewModel.createdId == nil {
-                    typeAndImageOptions
+                    .disabled(suggestion != nil)
+                
+                if viewModel.instance.taskType != .tracker {
+                    imageOption
                 }
-                commentView
+                if let suggestion {
+                    if !suggestion.isSending || !suggestion.comment.isEmpty {
+                        commentView
+                    }
+                }
                 
                 VStack {
-                    if suggestion == nil || !suggestion!.isSending {
+                    if suggestion == nil && !viewModel.instance.isCompleted && viewModel.hasChanges {
                         Button {
                             if isValid {
+                                viewModel.updateTaskConfig()
+                            } else {
+                                viewModel.errorMessage = "Некорректное заполнение формы"
+                            }
+                        } label: {
+                            Text("Обновить")
+                                .frame(maxWidth: .infinity)
+                                .overlay {
+                                    if loading {
+                                        HStack {
+                                            ProgressView()
+                                            Spacer()
+                                            ProgressView()
+                                        }
+                                        .tint(.white)
+                                    }
+                                }
+                                .appCardStyle(colors: loading ?
+                                              [Color(.systemGray), Color(.systemGray4)] :
+                                                [themeModel.theme.secAccent1, themeModel.theme.secAccent2])
+                        }
+                    }
+                    if (viewModel.instance.taskType != .goal || viewModel.instance.id.isEmpty) && (suggestion == nil || !suggestion!.isSending) {
+                        Button {
+                            if suggestion == nil && !toAssign && !viewModel.instance.id.isEmpty {
+                                if viewModel.instance.isCompleted || !viewModel.isTaskForDate(Date()) {
+                                    viewModel.toggleComplete(isTodayDeletion: false)
+                                } else {
+                                    showingCompleteAlert = true
+                                }
+                            } else if isValid {
                                 if let suggestion {
-                                    viewModel.createTaskConfig(withId: suggestion.config.id)
+                                    viewModel.createTaskConfig()
                                     mainModel.updateSuggestionStatus(
                                         .accepted,
                                         forSuggestion: suggestion,
-                                        comment: comment.isEmpty ? "Принято" : comment
+                                        comment: viewModel.comment.isEmpty ? "Принято" : viewModel.comment
                                     )
                                 }
                                 else if toAssign {
-                                    if viewModel.createdId == nil {
-                                        viewModel.createdId = UUID().uuidString
+                                    if viewModel.instance.id.isEmpty {
+                                        viewModel.instance.id = UUID().uuidString
                                     }
                                     showingAssign = true
-                                } else if viewModel.createdId == nil {
+                                } else if viewModel.instance.id.isEmpty {
                                     viewModel.createTaskConfig()
-                                } else {
-                                    viewModel.toggleComplete()
                                 }
                             } else {
                                 viewModel.errorMessage = "Некорректное заполнение формы"
@@ -358,8 +473,8 @@ struct TaskConfigDetailsView: View {
                         } label: {
                             Text(suggestion != nil ? "Принять" :
                                     (toAssign ? (suggestions.count > 0 ? "Назначено \(suggestions.count)" : "Назначить") :
-                                        (viewModel.createdId == nil ? "Создать" :
-                                            (viewModel.completedDate == nil ? "Завершить цикл задач" : "Восстановить"))))
+                                        (viewModel.instance.id.isEmpty ? "Создать" :
+                                            (viewModel.instance.isCompleted ? "Восстановить" : "Завершить цикл задач"))))
                             .frame(maxWidth: .infinity)
                             .overlay {
                                 if loading {
@@ -376,7 +491,7 @@ struct TaskConfigDetailsView: View {
                         .disabled(loading)
                     }
                     
-                    if viewModel.completedDate != nil || suggestion != nil {
+                    if (viewModel.instance.taskType == .goal ? !viewModel.instance.id.isEmpty : viewModel.instance.isCompleted) || suggestion != nil {
                         Button {
                             if let suggestion {
                                 if suggestion.isSending {
@@ -385,7 +500,7 @@ struct TaskConfigDetailsView: View {
                                     mainModel.updateSuggestionStatus(
                                         .declined,
                                         forSuggestion: suggestion,
-                                        comment: comment.isEmpty ? "Отклонено" : comment
+                                        comment: viewModel.comment.isEmpty ? "Отклонено" : viewModel.comment
                                     )
                                 }
                             } else {
@@ -438,8 +553,21 @@ struct TaskConfigDetailsView: View {
                 Text("Удалить")
             }
         }
+        .alert("Завершение цикла задач. Исключить из списка эту задачу на сегодня?", isPresented: $showingCompleteAlert) {
+            Button {
+                viewModel.toggleComplete(isTodayDeletion: true)
+            } label: {
+                Text("Исключить")
+            }
+            Button {
+                viewModel.toggleComplete(isTodayDeletion: false)
+            } label: {
+                Text("Оставить")
+            }
+            Text("Отмена")
+        }
         .sheet(isPresented: $showingAssign) {
-            GrantedUsersView(assignConfig: viewModel.config)
+            GrantedUsersView(assignConfig: viewModel.instance)
                 .padding(.top, 30)
                 .background(themeModel.colorScheme == .dark ? .black : .white)
         }
@@ -447,10 +575,13 @@ struct TaskConfigDetailsView: View {
 }
 
 #Preview {
-    TaskConfigDetailsView(
-        mainModel: MainViewModel(authModel: AuthViewModel()),
+    let mainModel = MainViewModel(authModel: AuthViewModel())
+    return TaskConfigDetailsView(
+        mainModel: mainModel,
         initialTaskConfig: nil,
-        bottomPresenting: false,
-        toAssign: true
+        bottomPresenting: true,
+        toAssign: false
     )
+    .environmentObject(mainModel)
+    .environmentObject(AppThemeModel())
 }

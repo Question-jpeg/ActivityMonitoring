@@ -10,23 +10,34 @@ import SwiftUI
 
 @MainActor
 class TaskConfigDetailsViewModel: ObservableObject {
-    @Published var title = ""
-    @Published var description = ""
-    @Published var selectedWeekdays = [WeekDay]()
-    @Published var selectedStartingFrom = Date()
-    @Published var selectedTaskType = TaskType.habit
-    @Published var imageValidation = false
-    @Published var onlyComment = true
-    @Published var time = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date())!
-    @Published var endTime = Calendar.current.date(bySettingHour: 8, minute: 30, second: 0, of: Date())!
-    @Published var isTime = false
-    @Published var isEndTime = false
-    @Published var notificate = false
-    @Published var createdId: String?
-    @Published var completedDate: Date?
-    
     @Published var loading = false
     @Published var errorMessage: String?
+    
+    @Published var notificate = false
+    @Published var lastTime = AppTime(hour: 8, minute: 0)
+    @Published var lastInterval = 30
+    @Published var comment = ""
+    
+    @Published var instance = AppTaskConfig(
+        id: "",
+        groupId: "",
+        title: "",
+        description: "",
+        startingFrom: AppDate.fromDate(Date()),
+        completedDate: nil,
+        taskType: .habit,
+        creationDate: AppDate.fromDate(Date()),
+        imageValidation: false,
+        onlyComment: true,
+        time: nil,
+        endTime: nil,
+        isMomental: false,
+        isHidden: false,
+        maxProgress: 10,
+        edgeProgress: 8,
+        toFill: true,
+        weekDays: []
+    )
     
     var inited = false
     let center = UNUserNotificationCenter.current()
@@ -35,68 +46,45 @@ class TaskConfigDetailsViewModel: ObservableObject {
     let mainModel: MainViewModel
     let initialTaskConfig: AppTaskConfig?
     
+    var hasChanges: Bool {
+        guard let initialTaskConfig else { return false }
+        return initialTaskConfig != instance
+    }
+    
     init(mainModel: MainViewModel, initialTaskConfig: AppTaskConfig?) {
         self.mainModel = mainModel
         self.initialTaskConfig = initialTaskConfig
     }
     
     var isEveryday: Bool {
-        selectedWeekdays.count == 7
+        instance.weekDays.count == 7
     }
     
-    var config: AppTaskConfig {
-        return .init(
-            id: createdId ?? UUID().uuidString,
-            title: title,
-            description: description,
-            startingFrom: AppDate.fromDate(selectedStartingFrom),
-            taskType: selectedTaskType,
-            creationDate: AppDate.now(),
-            imageValidation: imageValidation,
-            onlyComment: onlyComment,
-            time: isTime ? AppTime.fromDate(time) : nil,
-            endTime: isEndTime ? AppTime.fromDate(endTime) : nil,
-            weekDays: selectedWeekdays
-        )
+    func isTaskForDate(_ date: Date) -> Bool {
+        guard let initialTaskConfig else { return false }
+        return Calendar.current.differenceInDays(from: initialTaskConfig.startingFrom.dateValue(), to: date) >= 0 &&
+        initialTaskConfig.weekDays.contains(WeekDay.getSelfFromValue(value: Calendar.current.component(.weekday, from: date)))
     }
     
-    func initState(initialConfig: AppTaskConfig? = nil, dismiss: @escaping () -> Void) {
+    func initState(dismiss: @escaping () -> Void) {
         if !inited {
             self.dismiss = dismiss
             inited = true
             
-            if let taskConfig = initialConfig ?? initialTaskConfig {
-                title = taskConfig.title
-                description = taskConfig.description
-                selectedStartingFrom = taskConfig.startingFrom.dateValue()
-                selectedWeekdays = taskConfig.weekDays
-                selectedTaskType = taskConfig.taskType
-                imageValidation = taskConfig.imageValidation
-                onlyComment = taskConfig.onlyCommentBool
-                completedDate = taskConfig.completedDate?.dateValue()
-                if let appTime = taskConfig.time {
-                    time = Calendar.current.date(bySettingHour: appTime.hour, minute: appTime.minute, second: 0, of: Date())!
-                    isTime = true
-                    
-                    if let appEndTime = taskConfig.endTime {
-                        endTime = Calendar.current.date(bySettingHour: appEndTime.hour, minute: appEndTime.minute, second: 0, of: Date())!
-                        isEndTime = true
-                    }
-                }
-                
-                createdId = taskConfig.id
+            if let taskConfig = initialTaskConfig {
+                instance = taskConfig
                 updateNotifications()
             }
         }
     }
     
     func updateNotifications() {
-        guard let id = createdId else { return }
+        guard !instance.id.isEmpty else { return }
         center.getPendingNotificationRequests { [self] requests in
             Task { @MainActor in
-                let count = requests.filter { $0.identifier.contains(id) }.count
+                let count = requests.filter { $0.identifier.contains(instance.id) }.count
                 
-                if count == (selectedWeekdays.count == 7 ? 1 : selectedWeekdays.count) {
+                if count == (isEveryday ? 1 : instance.weekDays.count) {
                     notificate = true
                 } else {
                     if count != 0 {
@@ -110,41 +98,30 @@ class TaskConfigDetailsViewModel: ObservableObject {
         }
     }
     
-    func createTaskConfig(withId id: String? = nil) {
+    func createTaskConfig() {
         loading = true
         Task {
             defer { loading = false }
             
             do {
-                var appTime: AppTime? = nil
-                var endAppTime: AppTime? = nil
-                if isTime {
-                    let components = Calendar.current.dateComponents([.hour, .minute], from: time)
-                    appTime = AppTime(hour: components.hour!, minute: components.minute!)
-                    
-                    if isEndTime {
-                        let componentsEnd = Calendar.current.dateComponents([.hour, .minute], from: endTime)
-                        endAppTime = AppTime(hour: componentsEnd.hour!, minute: componentsEnd.minute!)
-                    }
+                var instanceValue = instance
+                
+                if instance.taskType != .habit {
+                    instanceValue.weekDays = Set(WeekDay.allCases)
+                }
+                if instance.taskType == .goal {
+                    instanceValue.completedDate = instance.startingFrom
+                }
+                if instance.taskType == .tracker {
+                    instanceValue.time = nil
+                    instanceValue.endTime = nil
                 }
                 
-                let config = try await FirebaseConstants.createTaskConfig(
-                    withId: id,
-                    title: title,
-                    description: description,
-                    weekDays: selectedWeekdays,
-                    startingFrom: selectedStartingFrom,
-                    taskType: selectedTaskType,
-                    imageValidation: imageValidation,
-                    onlyComment: onlyComment,
-                    time: appTime,
-                    endTime: endAppTime
-                )
+                instance = try await FirebaseConstants.createTaskConfig(instance: instanceValue)
                 
-                mainModel.registerConfig(config)
-                createdId = config.id
+                mainModel.registerConfig(instance)
                 
-                if isTime && notificate {
+                if instance.time != nil && notificate {
                     setNotificate(true)
                 }
                 
@@ -155,25 +132,83 @@ class TaskConfigDetailsViewModel: ObservableObject {
         }
     }
     
-    func toggleComplete() {
-        guard let id = createdId else { return }
+    func updateTaskConfig() {
         loading = true
         Task {
             defer { loading = false }
             
             do {
-                var value: Date? = nil
-                if completedDate == nil {
-                    try await FirebaseConstants.completeTask(id: id)
-                    value = Date()
-                } else {
-                    try await FirebaseConstants.restoreTask(id: id)
+                let isTodayReplacement = isTaskForDate(Date()) && Calendar.current.isDateInToday(instance.startingFrom.dateValue())
+                
+                let toNotificate = notificate
+                setNotificate(false)
+                
+                let id = instance.id
+                
+                var completedDate = AppDate.now()
+                if isTodayReplacement { completedDate = AppDate.fromDate(Calendar.current.date(byAdding: .day, value: -1, to: Date())!) }
+                
+                try await FirebaseConstants.updateTaskConfig(id: id, completedDate: completedDate)
+                mainModel.registerConfigUpdate(id, completedDate: completedDate)
+                
+                let todayTask = isTodayReplacement ? mainModel.tasksMap[id]!.first(where: { Calendar.current.isDateInToday($0.completedDate.dateValue()) }) : nil                
+                if let todayTask {
+                    try await FirebaseConstants.deleteTask(id: todayTask.id, configId: id, imageUrls: todayTask.imageUrls)
+                    mainModel.unregisterTask(id: todayTask.id, configId: id)
                 }
-                                 
-                mainModel.registerCompletion(of: id, value: value == nil ? nil : AppDate.fromDate(value!))
-                completedDate = value
+                
+                var instanceValue = instance
+                instanceValue.id = ""
+                instance = try await FirebaseConstants.createTaskConfig(instance: instanceValue)
+                mainModel.registerConfig(instance)
+                
+                if instance.time != nil {
+                    setNotificate(toNotificate)
+                }
+                    
+                dismiss()
+            } catch {
+                errorMessage = "Не получилось обновить задачу"
+            }
+        }
+    }
+    
+    func toggleComplete(isTodayDeletion: Bool) {
+        loading = true
+        Task {
+            defer { loading = false }
+            
+            do {
+                if instance.completedDate == nil {
+                    var completedDate = AppDate.now()
+                    if isTodayDeletion { completedDate = AppDate.fromDate(Calendar.current.date(byAdding: .day, value: -1, to: Date())!) }
+                    try await FirebaseConstants.completeTask(id: instance.id, completedDate: completedDate)
+                    mainModel.registerCompletion(of: instance.id, value: completedDate)
+                    
+                    let todayTask = isTodayDeletion ? mainModel.tasksMap[instance.id]!.first(where: { Calendar.current.isDateInToday($0.completedDate.dateValue()) }) : nil
+                    if let todayTask {
+                        try await FirebaseConstants.deleteTask(id: todayTask.id, configId: instance.id, imageUrls: todayTask.imageUrls)
+                        mainModel.unregisterTask(id: todayTask.id, configId: instance.id)
+                    }
+                } else {
+                    if Calendar.current.differenceInDays(from: instance.completedDate!.dateValue(), to: instance.startingFrom.dateValue()) == 0 {
+                        try await FirebaseConstants.restoreTask(id: instance.id)
+                        mainModel.registerCompletion(of: instance.id, value: nil)
+                    } else {
+                        try await FirebaseConstants.updateTaskConfig(id: instance.id, completedDate: instance.completedDate!)
+                        mainModel.registerConfigUpdate(instance.id, completedDate: instance.completedDate!)
+                        
+                        var instanceValue = instance
+                        instanceValue.id = ""
+                        instanceValue.completedDate = nil
+                        instance = try await FirebaseConstants.createTaskConfig(instance: instanceValue)
+                        mainModel.registerConfig(instance)
+                    }
+                }
                 
                 setNotificate(false)
+                
+                dismiss()
             } catch {
                 errorMessage = "Не получилось завершить задачу"
             }
@@ -181,17 +216,14 @@ class TaskConfigDetailsViewModel: ObservableObject {
     }
     
     func deleteTaskConfig() {
-        guard let id = createdId else { return }
         loading = true
         Task {
             defer { loading = false }
             
             do {
-                let tasks = mainModel.tasksMap[id]!
-                try await FirebaseConstants.deleteTaskConfig(id: id, withTasks: tasks)
-                
-                mainModel.unregisterConfig(id: id)
-                createdId = nil
+                try await FirebaseConstants.deleteTaskConfigGroup(configs: mainModel.taskConfigs.filter { $0.groupId == instance.groupId })
+                mainModel.unregisterConfigGroup(id: instance.groupId)
+                instance.id = ""
                 
                 dismiss()
             } catch {
@@ -201,37 +233,39 @@ class TaskConfigDetailsViewModel: ObservableObject {
     }
     
     func removeNotifications() {
-        guard let id = createdId else { return }
-                
         var identifiers: [String]
-        if isEveryday { identifiers = [id] }
-        else { identifiers = selectedWeekdays.map { id + "\($0.value)" } }
+        if isEveryday { identifiers = [instance.id] }
+        else { identifiers = instance.weekDays.map { instance.id + "\($0.value)" } }
         
         center.removePendingNotificationRequests(withIdentifiers: identifiers)
     }
     
     func setNotificate(_ value: Bool) {
-        guard let id = createdId else { return }
+        guard instance.time != nil else { return }
         Task {
             do {
                 if value {
-                    let components = Calendar.current.dateComponents([.hour, .minute], from: time)
                     let content = UNMutableNotificationContent()
                     content.title = "Предстоящая задача"
-                    content.body = title
-                                        
-                    for weekday in selectedWeekdays {
+                    content.body = instance.title
+                    
+                    let identifiers: [String: Int] = isEveryday ? [instance.id: 1] : instance.weekDays.reduce([String: Int](), { partialResult, weekDay in
+                        var partialResult = partialResult
+                        partialResult["\(instance.id)\(weekDay.value)"] = weekDay.value
+                        return partialResult
+                    })
+                    
+                    for identifier in identifiers.keys {
                         var date = DateComponents()
-                        date.hour = components.hour
-                        date.minute = components.minute
+                        date.hour = instance.time?.hour
+                        date.minute = instance.time?.minute
                         if !isEveryday {
-                            date.weekday = weekday.value
+                            date.weekday = identifiers[identifier]
                         }
                         let trigger = UNCalendarNotificationTrigger(dateMatching: date, repeats: true)
-                        let request = UNNotificationRequest(identifier: id + (isEveryday ? "" : "\(weekday.value)"), content: content, trigger: trigger)
+                        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
                         
                         try await center.add(request)
-                        if isEveryday { break }
                     }
                     
                     updateNotifications()

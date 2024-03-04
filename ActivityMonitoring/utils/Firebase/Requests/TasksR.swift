@@ -8,59 +8,46 @@
 import Firebase
 
 extension FirebaseConstants {
-    static func createTaskConfig(
-        withId id: String? = nil,
-        title: String,
-        description: String,
-        weekDays: [WeekDay],
-        startingFrom: Date,
-        taskType: TaskType,
-        imageValidation: Bool,
-        onlyComment: Bool,
-        time: AppTime?,
-        endTime: AppTime?
-        ) async throws -> AppTaskConfig {
+    static func createTaskConfig(instance: AppTaskConfig) async throws -> AppTaskConfig {
         guard let currentUserId else { throw AuthError.unexpected }
-        let taskConfigDocRef = getTaskConfigDocRef(profileId: currentUserId, id: id)
-        let data = AppTaskConfig(
-            id: taskConfigDocRef.documentID,
-            title: title,
-            description: description,
-            startingFrom: AppDate.fromDate(startingFrom),
-            taskType: taskType,
-            creationDate: AppDate.now(),
-            imageValidation: imageValidation,
-            onlyComment: onlyComment,
-            time: time,
-            endTime: endTime,
-            weekDays: weekDays
-        )
-        try await taskConfigDocRef.setData(try encode(data))
         
-        return data
+        let taskConfigDocRef = getTaskConfigDocRef(profileId: currentUserId)
+        
+        var instance = instance
+        let id = instance.id.isEmpty ? taskConfigDocRef.documentID : instance.id
+        let groupId = instance.groupId.isEmpty ? id : instance.groupId
+        instance.id = id
+        instance.groupId = groupId
+        
+        try await taskConfigDocRef.setData(try encode(instance))
+        
+        return instance
     }
     
-    static func deleteTaskConfig(id: String, withTasks tasks: [AppTask]) async throws {
+    static func deleteTaskConfigGroup(configs: [AppTaskConfig]) async throws {
         guard let currentUserId else { throw AuthError.unexpected }
-        
-        tasks.forEach { $0.imageUrls.forEach { url in deleteImage(url: url) } }
-        
         let batch = firestore.batch()
-        tasks.map { getTaskDocRef(profileId: currentUserId, configId: id, id: $0.id) }.forEach { batch.deleteDocument($0) }
         
-        batch.deleteDocument(getTaskConfigDocRef(profileId: currentUserId, id: id))
+        for config in configs {
+            let tasks = try await getTasks(configId: config.id)
+            
+            tasks.forEach { $0.imageUrls.forEach { url in deleteImage(url: url) } }
+            
+            batch.deleteDocument(getTaskConfigDocRef(profileId: currentUserId, id: config.id))
+        }
         
         try await batch.commit()
     }
     
-    static func setNotifications(value: Bool, forTaskConfigId id: String) async throws {
+    static func updateTaskConfig(id: String, completedDate: AppDate) async throws {
         guard let currentUserId else { throw AuthError.unexpected }
-        try await getTaskConfigDocRef(profileId: currentUserId, id: id).updateData(try encode(UpdateNotificate(notificate: value)))
+        let doc = getTaskConfigDocRef(profileId: currentUserId, id: id)
+        try await doc.updateData(try encode(UpdateTaskConfigParent(completedDate: completedDate)))
     }
     
-    static func completeTask(id: String) async throws {
+    static func completeTask(id: String, completedDate: AppDate) async throws {
         guard let currentUserId else { throw AuthError.unexpected }
-        try await getTaskConfigDocRef(profileId: currentUserId, id: id).updateData(try encode(CloseTaskUpdate(completedDate: AppDate.now())))
+        try await getTaskConfigDocRef(profileId: currentUserId, id: id).updateData(try encode(CloseTaskUpdate(completedDate: completedDate)))
     }
     
     static func restoreTask(id: String) async throws {
@@ -78,7 +65,8 @@ extension FirebaseConstants {
             id: taskDocRef.documentID,
             completedDate: AppDate.now(),
             imageUrls: imageUrls,
-            comment: comment
+            comment: comment,
+            progress: 1
         )
         try await taskDocRef.setData(try encode(task))
         
@@ -89,6 +77,11 @@ extension FirebaseConstants {
         guard let currentUserId else { throw AuthError.unexpected }
         imageUrls.forEach { deleteImage(url: $0) }
         try await getTaskDocRef(profileId: currentUserId, configId: configId, id: id).delete()
+    }
+    
+    static func updateTaskProgress(id: String, configId: String, value: Int) async throws {
+        guard let currentUserId else { throw AuthError.unexpected }
+        try await getTaskDocRef(profileId: currentUserId, configId: configId, id: id).updateData(try encode(AppTaskProgressUpdate(progress: value)))
     }
     
     static func getTaskConfigs() async throws -> [AppTaskConfig] {

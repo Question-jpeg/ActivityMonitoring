@@ -9,6 +9,8 @@ import SwiftUI
 import Kingfisher
 
 struct UserCell: View {
+    @EnvironmentObject var themeModel: AppThemeModel
+    
     let user: User
     var isLink = true
     var isBack = false
@@ -61,7 +63,7 @@ struct UserCell: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, -5)
-        .appCardStyle(colors: [Color(.systemGray2), Color(.systemGray4)])
+        .appCardStyle(colors: [themeModel.theme.secAccent1, themeModel.theme.secAccent2])
     }
 }
 

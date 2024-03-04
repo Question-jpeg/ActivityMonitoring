@@ -18,7 +18,7 @@ struct BatteryView: View {
     
     var percentage: Double {
         if targetCount != 0 {
-            return Double(completedCount) / Double(targetCount)
+            return min(1, Double(completedCount) / Double(targetCount))
         }
         
         return 0

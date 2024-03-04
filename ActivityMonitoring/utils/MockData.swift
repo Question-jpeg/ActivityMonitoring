@@ -21,6 +21,7 @@ struct MockData {
     
     static let taskConfig = AppTaskConfig(
         id: UUID().uuidString,
+        groupId: UUID().uuidString,
         title: "Test",
         description: "",
         startingFrom: AppDate.now(),
@@ -30,11 +31,17 @@ struct MockData {
         onlyComment: false,
         time: .init(hour: 8, minute: 0),
         endTime: .init(hour: 8, minute: 30),
-        weekDays: WeekDay.allCases
+        isMomental: false,
+        isHidden: false,
+        maxProgress: 0,
+        edgeProgress: 0,
+        toFill: true,
+        weekDays: Set(WeekDay.allCases)
     )
     
     static let taskConfig2 = AppTaskConfig(
         id: UUID().uuidString,
+        groupId: UUID().uuidString,
         title: "Test2",
         description: "some description",
         startingFrom: AppDate.now(),
@@ -44,20 +51,31 @@ struct MockData {
         onlyComment: false,
         time: nil,
         endTime: nil,
-        weekDays: WeekDay.allCases
+        isMomental: false,
+        isHidden: false,
+        maxProgress: 0,
+        edgeProgress: 0,
+        toFill: true,
+        weekDays: Set(WeekDay.allCases)
     )
     
     static let taskConfig3 = AppTaskConfig(
         id: UUID().uuidString,
+        groupId: UUID().uuidString,
         title: "Test3",
         description: "some description",
         startingFrom: AppDate.now(),
-        taskType: .habit,
+        taskType: .tracker,
         creationDate: AppDate.now(),
         imageValidation: false,
         onlyComment: false,
         time: .init(hour: 8, minute: 0),
         endTime: .init(hour: 8, minute: 30),
-        weekDays: WeekDay.allCases
+        isMomental: false,
+        isHidden: false,
+        maxProgress: 10,
+        edgeProgress: 8,
+        toFill: true,
+        weekDays: Set(WeekDay.allCases)
     )
 }

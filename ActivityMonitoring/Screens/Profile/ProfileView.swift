@@ -11,6 +11,7 @@ import Kingfisher
 struct ProfileView: View {
     @EnvironmentObject var mainModel: MainViewModel
     @EnvironmentObject var authModel: AuthViewModel
+    @EnvironmentObject var themeModel: AppThemeModel
     
     @State private var showingImagePicker = false
     @State private var image: UIImage?
@@ -80,7 +81,7 @@ struct ProfileView: View {
                     }
                 }
                 .padding(10)
-                .appCardStyle(colors: [Color(.systemGray), Color(.systemGray4)])
+                .appCardStyle(colors: [themeModel.theme.secAccent1, themeModel.theme.secAccent2])
                 .overlay(alignment: .top) {
                     if hasChanged && !loading {
                         HStack {
@@ -129,7 +130,7 @@ struct ProfileView: View {
                 } label: {
                     Text("Сменить тему")
                         .frame(maxWidth: .infinity)
-                        .appCardStyle(colors: [Color(.systemGray), Color(.systemGray4)])
+                        .appCardStyle(colors: [themeModel.theme.secAccent1, themeModel.theme.secAccent2])
                 }
                 
                 Button(role: .destructive) {

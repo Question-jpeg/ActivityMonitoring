@@ -14,8 +14,8 @@ class TaskCompletionViewModel: ObservableObject {
     @Published var comment = ""
     @Published var createdUrls = [String]()
     @Published var createdId: String?
-    
-    var loadingIds = [String]()
+
+    @Published var loadingIds = Set<String>()
     @Published var loading = false
     @Published var errorMessage: String?
     
@@ -37,14 +37,14 @@ class TaskCompletionViewModel: ObservableObject {
     func createTask(configId: String, isSheet: Bool) {
         guard !loadingIds.contains(configId) else { return }
         
-        loadingIds.append(configId)
+        loadingIds.insert(configId)
         loading = true
         Task {
-            defer { loadingIds.removeAll(where: { $0 == configId }); loading = false }
+            defer { loadingIds.remove(configId); loading = false }
             
             let tempId = UUID().uuidString
             do {
-                var appTask = AppTask(id: tempId, completedDate: AppDate.now(), imageUrls: [], comment: comment)
+                var appTask = AppTask(id: tempId, completedDate: AppDate.now(), imageUrls: [], comment: comment, progress: 1)
                 mainModel.registerTask(appTask, configId: configId)
                 
                 appTask = try await FirebaseConstants.createTask(configId: configId, images: images, comment: comment)
@@ -62,10 +62,10 @@ class TaskCompletionViewModel: ObservableObject {
     func deleteTask(id: String, configId: String, isSheet: Bool) {
         guard !loadingIds.contains(configId) else { return }
         
-        loadingIds.append(configId)
+        loadingIds.insert(configId)
         loading = true
         Task {
-            defer { loadingIds.removeAll(where: { $0 == configId }); loading = false }
+            defer { loadingIds.remove(configId); loading = false }
             let removedTask = mainModel.tasksMap[configId]!.first(where: { $0.id == id })!
             do {
                 mainModel.unregisterTask(id: id, configId: configId)
@@ -74,6 +74,24 @@ class TaskCompletionViewModel: ObservableObject {
             } catch {
                 mainModel.registerTask(removedTask, configId: configId)
                 errorMessage = "Не удалось возобновить задачу"
+            }
+        }
+    }
+    
+    func setTaskProgress(id: String, configId: String, from: Int, value: Int) {
+        guard !loadingIds.contains(configId) else { return }
+        
+        loadingIds.insert(configId)
+        loading = true
+        Task {
+            defer { loadingIds.remove(configId); loading = false }
+            
+            do {
+                mainModel.registerTaskProgress(id: id, configId: configId, value: value)
+                try await FirebaseConstants.updateTaskProgress(id: id, configId: configId, value: value)
+            } catch {
+                mainModel.registerTaskProgress(id: id, configId: configId, value: from)
+                errorMessage = "Не удалось обновить прогресс трекера"
             }
         }
     }

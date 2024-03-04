@@ -55,6 +55,7 @@
 		789FEDC12B739169002A0F68 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 789FEDC02B739169002A0F68 /* Preview Assets.xcassets */; };
 		78B8062B2B76A16500D700C5 /* TaskCompletionDetailsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78B8062A2B76A16500D700C5 /* TaskCompletionDetailsView.swift */; };
 		78B8062D2B777BBB00D700C5 /* Color.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78B8062C2B777BBB00D700C5 /* Color.swift */; };
+		78BF88C42B94C34D00F8AC59 /* TaskConfigInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78BF88C32B94C34D00F8AC59 /* TaskConfigInfoView.swift */; };
 		78DE45A02B8126260019B684 /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 78DE459F2B8126260019B684 /* .gitignore */; };
 		78EECE012B7F68EF006D3239 /* ThemeCustomizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78EECE002B7F68EF006D3239 /* ThemeCustomizationView.swift */; };
 		78EECE032B7F69B1006D3239 /* AppThemeModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78EECE022B7F69B1006D3239 /* AppThemeModel.swift */; };
@@ -114,6 +115,7 @@
 		789FEDC02B739169002A0F68 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		78B8062A2B76A16500D700C5 /* TaskCompletionDetailsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskCompletionDetailsView.swift; sourceTree = "<group>"; };
 		78B8062C2B777BBB00D700C5 /* Color.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Color.swift; sourceTree = "<group>"; };
+		78BF88C32B94C34D00F8AC59 /* TaskConfigInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskConfigInfoView.swift; sourceTree = "<group>"; };
 		78DE459F2B8126260019B684 /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 		78EECE002B7F68EF006D3239 /* ThemeCustomizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeCustomizationView.swift; sourceTree = "<group>"; };
 		78EECE022B7F69B1006D3239 /* AppThemeModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppThemeModel.swift; sourceTree = "<group>"; };
@@ -343,6 +345,7 @@
 			children = (
 				7857F0832B74CB5000E42CAD /* ActivityViewerView.swift */,
 				78B8062A2B76A16500D700C5 /* TaskCompletionDetailsView.swift */,
+				78BF88C32B94C34D00F8AC59 /* TaskConfigInfoView.swift */,
 			);
 			path = ActivityViewer;
 			sourceTree = "<group>";
@@ -441,6 +444,7 @@
 				78FCBA632B79713B00485706 /* TaskConfigDetailsViewModel.swift in Sources */,
 				7857F0C92B74EBBD00E42CAD /* AuthView.swift in Sources */,
 				78FCBA672B7A89CB00485706 /* BatteryView.swift in Sources */,
+				78BF88C42B94C34D00F8AC59 /* TaskConfigInfoView.swift in Sources */,
 				789FEDBC2B739168002A0F68 /* ContentView.swift in Sources */,
 				7857F0742B73AD4A00E42CAD /* AppTask.swift in Sources */,
 				7857F0D32B74F66800E42CAD /* ImagePicker.swift in Sources */,
