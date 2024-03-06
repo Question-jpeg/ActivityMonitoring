@@ -138,6 +138,8 @@ struct GrantedUsersView: View {
             Alert(title: Text(errorMessage))
         }
         .onAppear { isFocused = true }
+        .padding(.top, 30)
+        .background(themeModel.colorScheme == .dark ? .black : .white)
     }
 }
 

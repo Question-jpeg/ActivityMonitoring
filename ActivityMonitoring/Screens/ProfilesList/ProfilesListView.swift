@@ -10,6 +10,7 @@ import SwiftUI
 struct ProfilesListView: View {
     @EnvironmentObject var mainModel: MainViewModel
     @EnvironmentObject var themeModel: AppThemeModel
+    @State private var showingGrantedUsers = false
     
     var body: some View {
         NavigationStack {
@@ -36,6 +37,22 @@ struct ProfilesListView: View {
                 .padding(.top, 40)
             }
             .navigationTitle("Мониторинг")
+            .overlay(alignment: .bottomTrailing) {
+                Button {
+                    showingGrantedUsers = true
+                } label: {
+                    Image(systemName: "person.fill.badge.plus")
+                        .font(.title)
+                        .foregroundStyle(.white)
+                        .padding(15)
+                        .background(themeModel.theme.tint)
+                        .clipShape(Circle())
+                }
+                .padding()
+            }
+            .fullScreenCover(isPresented: $showingGrantedUsers) {
+                GrantedUsersView()
+            }
         }
         
     }

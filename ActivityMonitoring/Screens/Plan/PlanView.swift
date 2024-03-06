@@ -19,7 +19,6 @@ struct PlanView: View {
     @EnvironmentObject var themeModel: AppThemeModel
     
     @State private var creatingNewTask = false
-    @State private var addingPersons = false
     @State private var currentTabIndex = 0
     @Binding var showingSelf: Bool
     
@@ -99,7 +98,7 @@ struct PlanView: View {
                 
                 Spacer()
                 
-                Text(isFinished ? "Завершённые задачи" : "Активные задачи")
+                Text(isFinished ? "Завершённые задачи" : (currentTabIndex == 0 ? "Цели" : "Регулярные задачи"))
                     .font(.title)
                 
                 Spacer()
@@ -172,44 +171,10 @@ struct PlanView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
         }
-        .overlay(alignment: .bottom) {
-            if !isFinished && user == nil {
-                HStack {
-                    Button {
-                        addingPersons = true
-                    } label: {
-                        Image(systemName: "person.crop.circle.badge.plus")
-                            .font(.title)
-                            .foregroundStyle(.white)
-                            .padding(20)
-                            .background(themeModel.theme.tint)
-                            .clipShape(Circle())
-                    }
-                    Spacer()
-                    Button {
-                        creatingNewTask = true
-                    } label: {
-                        Image(systemName: "note.text.badge.plus")
-                            .font(.title)
-                            .foregroundStyle(.white)
-                            .padding(20)
-                            .background(themeModel.theme.tint)
-                            .clipShape(Circle())
-                    }
-                }
-                .padding()
-            }
-        }
         .fullScreenCover(isPresented: $creatingNewTask) {
             TaskConfigDetailsView(mainModel: mainModel, bottomPresenting: true)
         }
-        .sheet(isPresented: $addingPersons) {
-            GrantedUsersView()
-                .padding(.top, 30)
-                .background(themeModel.colorScheme == .dark ? .black : .white)
-        }
     }
-    
     
     var body: some View {
         if !isFinished {

@@ -568,8 +568,6 @@ struct TaskConfigDetailsView: View {
         }
         .sheet(isPresented: $showingAssign) {
             GrantedUsersView(assignConfig: viewModel.instance)
-                .padding(.top, 30)
-                .background(themeModel.colorScheme == .dark ? .black : .white)
         }
     }
 }

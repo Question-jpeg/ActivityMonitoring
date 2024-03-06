@@ -32,6 +32,7 @@ extension FirebaseConstants {
             let tasks = try await getTasks(configId: config.id)
             
             tasks.forEach { $0.imageUrls.forEach { url in deleteImage(url: url) } }
+            tasks.forEach { batch.deleteDocument(getTaskDocRef(profileId: currentUserId, configId: config.id, id: $0.id)) }
             
             batch.deleteDocument(getTaskConfigDocRef(profileId: currentUserId, id: config.id))
         }

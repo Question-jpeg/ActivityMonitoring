@@ -25,7 +25,7 @@ class TaskConfigDetailsViewModel: ObservableObject {
         description: "",
         startingFrom: AppDate.fromDate(Date()),
         completedDate: nil,
-        taskType: .habit,
+        taskType: .goal,
         creationDate: AppDate.fromDate(Date()),
         imageValidation: false,
         onlyComment: true,
@@ -138,34 +138,41 @@ class TaskConfigDetailsViewModel: ObservableObject {
             defer { loading = false }
             
             do {
-                let isTodayReplacement = isTaskForDate(Date()) && Calendar.current.isDateInToday(instance.startingFrom.dateValue())
-                
                 let toNotificate = notificate
                 setNotificate(false)
                 
-                let id = instance.id
-                
-                var completedDate = AppDate.now()
-                if isTodayReplacement { completedDate = AppDate.fromDate(Calendar.current.date(byAdding: .day, value: -1, to: Date())!) }
-                
-                try await FirebaseConstants.updateTaskConfig(id: id, completedDate: completedDate)
-                mainModel.registerConfigUpdate(id, completedDate: completedDate)
-                
-                let todayTask = isTodayReplacement ? mainModel.tasksMap[id]!.first(where: { Calendar.current.isDateInToday($0.completedDate.dateValue()) }) : nil                
-                if let todayTask {
-                    try await FirebaseConstants.deleteTask(id: todayTask.id, configId: id, imageUrls: todayTask.imageUrls)
-                    mainModel.unregisterTask(id: todayTask.id, configId: id)
-                }
-                
                 var instanceValue = instance
                 instanceValue.id = ""
-                instance = try await FirebaseConstants.createTaskConfig(instance: instanceValue)
-                mainModel.registerConfig(instance)
                 
+                if instance.taskType != .goal {
+                    let id = instance.id
+                    
+                    let completedDate = AppDate.fromDate(Calendar.current.date(byAdding: .day, value: -1, to: instance.startingFrom.dateValue())!)
+                    
+                    try await FirebaseConstants.updateTaskConfig(id: id, completedDate: completedDate)
+                    mainModel.registerConfigUpdate(id, completedDate: completedDate)
+                    
+                    let task = mainModel.tasksMap[id]!.first(where: { Calendar.current.differenceInDays(from: instance.startingFrom.dateValue(), to: $0.completedDate.dateValue()) == 0 })
+                    if let task {
+                        try await FirebaseConstants.deleteTask(id: task.id, configId: id, imageUrls: task.imageUrls)
+                        mainModel.unregisterTask(id: task.id, configId: id)
+                    }
+                    
+                    instance = try await FirebaseConstants.createTaskConfig(instance: instanceValue)
+                    mainModel.registerConfig(instance)
+                } else {
+                    try await FirebaseConstants.deleteTaskConfigGroup(configs: [instance])
+                    mainModel.unregisterConfigGroup(id: instance.groupId)
+                    instanceValue.groupId = ""
+                    instanceValue.completedDate = instance.startingFrom
+                    instance = try await FirebaseConstants.createTaskConfig(instance: instanceValue)
+                    mainModel.registerConfig(instance)
+                }
+                    
                 if instance.time != nil {
                     setNotificate(toNotificate)
                 }
-                    
+                
                 dismiss()
             } catch {
                 errorMessage = "Не получилось обновить задачу"

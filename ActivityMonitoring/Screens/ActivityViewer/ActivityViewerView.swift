@@ -17,6 +17,7 @@ struct ActivityViewerView: View {
     @State private var scrollIndex = 7
     @State private var showingRating = false
     @State private var showingTomorrowTasks = false
+    @State private var showingCreateTask = false
     @State private var taskData: TaskCompletionData?
     
     var user: User?
@@ -181,13 +182,12 @@ struct ActivityViewerView: View {
                             dismiss()
                         }
                         .offset(y: 40)
-                        
                     }
             }
         }
         .ignoresSafeArea()
         .overlay(alignment: .bottom) {
-            HStack {
+            HStack(alignment: .bottom) {
                 Button {
                     if user != nil {
                         showingRating = true
@@ -205,31 +205,48 @@ struct ActivityViewerView: View {
                 
                 Spacer()
                 
-                Button {
-                    scrollIndex -= 1
-                } label: {
-                    Image(systemName: "arrow.up")
-                        .font(.title2)
-                        .foregroundStyle(.white)
-                        .padding(15)
-                        .background(themeModel.theme.tint)
-                        .clipShape(Circle())
+                VStack(alignment: .trailing) {
+                    if user == nil {
+                        Button {
+                            showingCreateTask = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                                .padding(15)
+                                .background(themeModel.theme.tint)
+                                .clipShape(Circle())
+                        }
+                    }
+                    
+                    HStack {
+                        Button {
+                            scrollIndex -= 1
+                        } label: {
+                            Image(systemName: "arrow.up")
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                                .padding(15)
+                                .background(themeModel.theme.tint)
+                                .clipShape(Circle())
+                        }
+                        .disabled(scrollIndex == 0)
+                        .opacity(scrollIndex == 0 ? 0.5 : 1)
+                        
+                        Button {
+                            scrollIndex += 1
+                        } label: {
+                            Image(systemName: "arrow.down")
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                                .padding(15)
+                                .background(themeModel.theme.tint)
+                                .clipShape(Circle())
+                        }
+                        .disabled(scrollIndex == 14)
+                        .opacity(scrollIndex == 14 ? 0.5 : 1)
+                    }
                 }
-                .disabled(scrollIndex == 0)
-                .opacity(scrollIndex == 0 ? 0.5 : 1)
-                
-                Button {
-                    scrollIndex += 1
-                } label: {
-                    Image(systemName: "arrow.down")
-                        .font(.title2)
-                        .foregroundStyle(.white)
-                        .padding(15)
-                        .background(themeModel.theme.tint)
-                        .clipShape(Circle())
-                }
-                .disabled(scrollIndex == 14)
-                .opacity(scrollIndex == 14 ? 0.5 : 1)
             }
             .padding()
         }
@@ -264,6 +281,9 @@ struct ActivityViewerView: View {
             )
             .environmentObject(completionModel)
         }
+        .fullScreenCover(isPresented: $showingCreateTask) {
+            TaskConfigDetailsView(mainModel: mainModel, bottomPresenting: true)
+        }
     }
 }
 
@@ -282,6 +302,7 @@ struct TaskCompletionData: Identifiable {
 
 struct TaskConfigsCardView: View {
     @EnvironmentObject var completionModel: TaskCompletionViewModel
+    @EnvironmentObject var mainModel: MainViewModel
     
     let title: String
     let colors: [Color]
@@ -291,6 +312,7 @@ struct TaskConfigsCardView: View {
     let scaleFactor: Double
     
     @State private var contentSize: CGSize = .zero
+    @State private var presentingConfig: AppTaskConfig?
     @Binding var taskData: TaskCompletionData?
     
     var body: some View {
@@ -312,12 +334,13 @@ struct TaskConfigsCardView: View {
                                     }
                                 } label: {
                                     Image(systemName: "minus")
+                                        .padding(10)
                                 }
                                 .disabled((completedTask?.progress ?? 0) == 0)
                             }
                             
                             Button {
-                                let disabled = unavailable || config.isOutOfDate
+                                let disabled = unavailable || config.isOutOfDate || config.taskType == .tracker
                                 if (config.imageValidation ? (completedTask != nil || !disabled) : !disabled) {
                                     if config.imageValidation {
                                         taskData = TaskCompletionData(selectedConfig: config, task: completedTask, editable: !disabled)
@@ -332,7 +355,6 @@ struct TaskConfigsCardView: View {
                             } label: {
                                 TaskConfigInfoView(config: config, checked: completedTask != nil, progress: completedTask?.progress ?? 0)
                             }
-                            .disabled(config.taskType == .tracker)
                             
                             if config.taskType == .tracker {
                                 Button {
@@ -348,11 +370,18 @@ struct TaskConfigsCardView: View {
                                     }
                                 } label: {
                                     Image(systemName: "plus")
+                                        .padding(10)
                                 }
                                 .disabled((completedTask?.progress ?? 0) == config.maxProgress)
                             }
                         }
                         .disabled(completionModel.loadingIds.contains(config.id))
+                        .simultaneousGesture(
+                            LongPressGesture()
+                                .onEnded { _ in
+                                    presentingConfig = config
+                                }
+                        )
                         
                         if i != configs.count - 1 {
                             Rectangle()
@@ -377,5 +406,8 @@ struct TaskConfigsCardView: View {
         .frame(height: min(contentSize.height, UIScreen.height/6*scaleFactor))
         .frame(maxWidth: .infinity)
         .appCardStyle(colors: colors)
+        .fullScreenCover(item: $presentingConfig) { config in
+            TaskConfigDetailsView(mainModel: mainModel, initialTaskConfig: config, bottomPresenting: true)
+        }
     }
 }
