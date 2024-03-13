@@ -18,6 +18,22 @@ struct TaskConfigInfoView: View {
     var targetCount: Int? = nil
     var completedCount: Int? = nil
     
+    var boltImage: Text {
+        if config.isMomental {
+            Text(Image(systemName: "bolt.fill"))
+        } else {
+            Text("")
+        }
+    }
+    
+    var photoImage: Text {
+        if config.imageValidation {
+            Text(Image(systemName: config.onlyComment ? "rectangle.and.pencil.and.ellipsis" : "photo.fill"))
+        } else {
+            Text("")
+        }
+    }
+    
     var body: some View {
         HStack(spacing: 0) {
             if let checked, config.taskType != .tracker {
@@ -42,16 +58,15 @@ struct TaskConfigInfoView: View {
             
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 0) {
-                    if config.isMomental {
-                        Image(systemName: "bolt.fill")
+                    Group {
+                        boltImage
+                        +
+                        photoImage
+                        +
+                        Text(config.title)
                     }
-                    if config.imageValidation {
-                        Image(systemName: config.onlyComment ? "rectangle.and.pencil.and.ellipsis" : "photo.fill")
-                    }
-                    Text(config.title)
-                        .multilineTextAlignment(.leading)
-                        .font(.headline)
-                        .fontWeight(.regular)
+                    .multilineTextAlignment(.leading)
+                    .font(.system(size: 16).leading(.tight))
                 }
                 
                 if let progress, config.taskType == .tracker {
@@ -59,7 +74,7 @@ struct TaskConfigInfoView: View {
                         ForEach(1...config.maxProgress, id: \.self) { i in
                             Image(systemName: i <= progress ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(.white)
-                            if (i+1) == config.edgeProgress {
+                            if i == config.edgeProgress {
                                 Rectangle()
                                     .fill(.white.opacity(0.3))
                                     .frame(width: 2, height: 25)
@@ -73,7 +88,7 @@ struct TaskConfigInfoView: View {
                     Text(config.description)
                         .multilineTextAlignment(.leading)
                         .foregroundStyle(.secondary)
-                        .font(.footnote)
+                        .font(.footnote.leading(.tight))
                 }
             }
             Spacer()
@@ -89,6 +104,6 @@ struct TaskConfigInfoView: View {
 }
 
 #Preview {
-    TaskConfigInfoView(config: MockData.taskConfig3, progress: 5)
+    TaskConfigInfoView(config: MockData.taskConfig, progress: 5)
         .environmentObject(AppThemeModel())
 }

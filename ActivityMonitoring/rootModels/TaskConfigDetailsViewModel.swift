@@ -98,24 +98,33 @@ class TaskConfigDetailsViewModel: ObservableObject {
         }
     }
     
+    func getPreparedConfig() -> AppTaskConfig {
+        var instanceValue = instance
+        
+        if instance.taskType != .habit {
+            instanceValue.weekDays = Set(WeekDay.allCases)
+        }
+        if instance.taskType == .goal {
+            instanceValue.completedDate = instance.startingFrom
+        }
+        if instance.taskType == .tracker {
+            instanceValue.time = nil
+            instanceValue.endTime = nil
+            instanceValue.onlyComment = true
+        }
+        
+        return instanceValue
+    }
+    
     func createTaskConfig() {
         loading = true
         Task {
             defer { loading = false }
             
             do {
-                var instanceValue = instance
-                
-                if instance.taskType != .habit {
-                    instanceValue.weekDays = Set(WeekDay.allCases)
-                }
-                if instance.taskType == .goal {
-                    instanceValue.completedDate = instance.startingFrom
-                }
-                if instance.taskType == .tracker {
-                    instanceValue.time = nil
-                    instanceValue.endTime = nil
-                }
+                var instanceValue = getPreparedConfig()
+                instanceValue.id = ""
+                instanceValue.groupId = ""
                 
                 instance = try await FirebaseConstants.createTaskConfig(instance: instanceValue)
                 
@@ -147,16 +156,15 @@ class TaskConfigDetailsViewModel: ObservableObject {
                 if instance.taskType != .goal {
                     let id = instance.id
                     
-                    let completedDate = AppDate.fromDate(Calendar.current.date(byAdding: .day, value: -1, to: instance.startingFrom.dateValue())!)
+                    var completedDate = AppDate.fromDate(Calendar.current.date(byAdding: .day, value: -1, to: instance.startingFrom.dateValue())!)
+                    
+                    if mainModel.tasksMap[id]!.first(where: { Calendar.current.differenceInDays(from: instance.startingFrom.dateValue(), to: $0.completedDate.dateValue()) == 0 }) != nil {
+                        completedDate = AppDate.fromDate(instance.startingFrom.dateValue())
+                        instanceValue.startingFrom = AppDate.fromDate(Calendar.current.date(byAdding: .day, value: 1, to: instance.startingFrom.dateValue())!)
+                    }
                     
                     try await FirebaseConstants.updateTaskConfig(id: id, completedDate: completedDate)
                     mainModel.registerConfigUpdate(id, completedDate: completedDate)
-                    
-                    let task = mainModel.tasksMap[id]!.first(where: { Calendar.current.differenceInDays(from: instance.startingFrom.dateValue(), to: $0.completedDate.dateValue()) == 0 })
-                    if let task {
-                        try await FirebaseConstants.deleteTask(id: task.id, configId: id, imageUrls: task.imageUrls)
-                        mainModel.unregisterTask(id: task.id, configId: id)
-                    }
                     
                     instance = try await FirebaseConstants.createTaskConfig(instance: instanceValue)
                     mainModel.registerConfig(instance)

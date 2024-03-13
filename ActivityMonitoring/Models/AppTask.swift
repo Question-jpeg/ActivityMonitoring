@@ -203,7 +203,7 @@ struct AppTaskConfig: Identifiable, Codable, Hashable {
             if time1 == nil && time2 == nil {
                 return config1.creationDate.dateValue().timeIntervalSince1970 < config2.creationDate.dateValue().timeIntervalSince1970
             }
-            return time2 == nil
+            return time1 == nil
         }
         let value1 = time1!.hour*60+time1!.minute
         let value2 = time2!.hour*60+time2!.minute
@@ -280,7 +280,7 @@ struct AppTaskConfig: Identifiable, Codable, Hashable {
             let endDate = endAppTime.dateValue()
             let startSeconds = Date().timeIntervalSince1970 - startDate.timeIntervalSince1970
             let deadlineHours = (Date().timeIntervalSince1970 - endDate.timeIntervalSince1970) / 3600
-            isOutOfDate = startSeconds < 0 || deadlineHours > (isMomental ? 0 : 2)
+            isOutOfDate = startSeconds < 0 || deadlineHours > ((endTime != nil && isMomental) ? 0 : 2)
         }
         
         return isOutOfDate
@@ -294,12 +294,17 @@ struct AppTaskConfig: Identifiable, Codable, Hashable {
 
 struct AppTaskProgressUpdate: Codable {
     var progress: Int
+    var comment: String
+}
+
+struct AppTaskImagesUpdate: Codable {
+    var imageUrls: [String]
 }
 
 struct AppTask: Identifiable, Codable, Hashable {
     let id: String
     let completedDate: AppDate
-    let imageUrls: [String]
+    var imageUrls: [String]
     var comment: String
     var progress: Int
 }

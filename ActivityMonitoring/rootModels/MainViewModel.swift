@@ -332,11 +332,13 @@ class MainViewModel: ObservableObject {
         renderTasksMap[configId]?.removeAll(where: { $0.id == id })
     }
     
-    func registerTaskProgress(id: String, configId: String, value: Int) {
+    func registerTaskProgress(id: String, configId: String, value: Int, comment: String) {
         let index = tasksMap[configId]!.firstIndex(where: { $0.id == id })!
         let indexRender = renderTasksMap[configId]!.firstIndex(where: { $0.id == id })!
         
         tasksMap[configId]![index].progress = value
+        tasksMap[configId]![index].comment = comment
         renderTasksMap[configId]![indexRender].progress = value
+        renderTasksMap[configId]![indexRender].comment = comment
     }
 }

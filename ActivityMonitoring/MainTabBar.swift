@@ -50,7 +50,7 @@ struct MainTabBar: View {
                             .environment(\.symbolVariants, selectedTab == .suggestions ? .fill : .none)
                     }
                     .tag(Tab.suggestions)
-                    .badge(mainModel.gainingSuggestions.count + mainModel.sentSuggestions.filter { $0.status != .pending }.count)
+                    .badge(mainModel.gainingSuggestions.count)
                 
                 ProfileView()
                     .tabItem {

@@ -30,7 +30,7 @@ extension FirebaseConstants {
     }
     
     static func uploadImage(id: String, image: UIImage) async throws -> String {
-        guard let imageData = image.jpegData(compressionQuality: 0.25) else { throw UploadError.noJpegData }
+        guard let imageData = image.jpegData(compressionQuality: 0.1) else { throw UploadError.noJpegData }
         
         let ref = storage.reference(withPath: id)
         

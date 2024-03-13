@@ -57,15 +57,14 @@ extension FirebaseConstants {
         try await getTaskConfigDocRef(profileId: currentUserId, id: id).updateData(data)
     }
     
-    static func createTask(configId: String, images: [UIImage], comment: String) async throws -> AppTask {
+    static func createTask(configId: String, comment: String) async throws -> AppTask {
         guard let currentUserId else { throw AuthError.unexpected }
         let taskDocRef = getTaskDocRef(profileId: currentUserId, configId: configId)
-        let imageUrls = try await images.asyncCompactMap { try await uploadImage(id: UUID().uuidString, image: $0) }
         
         let task = AppTask(
             id: taskDocRef.documentID,
             completedDate: AppDate.now(),
-            imageUrls: imageUrls,
+            imageUrls: [],
             comment: comment,
             progress: 1
         )
@@ -74,15 +73,25 @@ extension FirebaseConstants {
         return task
     }
     
+    static func uploadTaskImages(configId: String, id: String, images: [UIImage]) async throws -> [String] {
+        guard let currentUserId else { throw AuthError.unexpected }
+        let taskDocRef = getTaskDocRef(profileId: currentUserId, configId: configId, id: id)
+        
+        let imageUrls = try await images.asyncCompactMap { try await uploadImage(id: UUID().uuidString, image: $0) }
+        try await taskDocRef.updateData(try encode(AppTaskImagesUpdate(imageUrls: imageUrls)))
+        
+        return imageUrls
+    }
+    
     static func deleteTask(id: String, configId: String, imageUrls: [String]) async throws {
         guard let currentUserId else { throw AuthError.unexpected }
         imageUrls.forEach { deleteImage(url: $0) }
         try await getTaskDocRef(profileId: currentUserId, configId: configId, id: id).delete()
     }
     
-    static func updateTaskProgress(id: String, configId: String, value: Int) async throws {
+    static func updateTaskProgress(id: String, configId: String, value: Int, comment: String) async throws {
         guard let currentUserId else { throw AuthError.unexpected }
-        try await getTaskDocRef(profileId: currentUserId, configId: configId, id: id).updateData(try encode(AppTaskProgressUpdate(progress: value)))
+        try await getTaskDocRef(profileId: currentUserId, configId: configId, id: id).updateData(try encode(AppTaskProgressUpdate(progress: value, comment: comment)))
     }
     
     static func getTaskConfigs() async throws -> [AppTaskConfig] {

@@ -8,9 +8,9 @@
 import SwiftUI
 
 extension View {
-    func appCardStyle(colors: [Color]) -> some View {
+    func appCardStyle(colors: [Color], paddingEdges: [Edge.Set] = [.all]) -> some View {
         self
-            .padding()
+            .padding(paddingEdges.reduce(Edge.Set()) { $0.union($1) })
             .background(LinearGradient(gradient: .init(colors: colors), startPoint: .leading, endPoint: .trailing))
             .clipShape(RoundedRectangle(cornerRadius: 20))
             .foregroundStyle(.white)

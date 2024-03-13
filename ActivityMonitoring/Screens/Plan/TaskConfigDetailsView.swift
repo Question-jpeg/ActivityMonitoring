@@ -237,7 +237,6 @@ struct TaskConfigDetailsView: View {
                 DatePicker("", selection: Binding(
                     get: { viewModel.instance.startingFrom.dateValue() },
                     set: { viewModel.instance.startingFrom = AppDate.fromDate($0) }),
-                    in: Date()...,
                     displayedComponents: .date
                 )
                 .environment(\.locale, Locale.init(identifier: "ru_RU"))
@@ -312,7 +311,7 @@ struct TaskConfigDetailsView: View {
                 Spacer()
             }
             
-            if viewModel.instance.imageValidation {
+            if viewModel.instance.imageValidation && viewModel.instance.taskType != .tracker {
                 Button {
                     if viewModel.instance.onlyComment { viewModel.instance.onlyComment = false }
                     else { viewModel.instance.onlyComment = true }
@@ -407,9 +406,10 @@ struct TaskConfigDetailsView: View {
                 shortOptionsView
                     .disabled(suggestion != nil)
                 
-                if viewModel.instance.taskType != .tracker {
+                if suggestion == nil {
                     imageOption
                 }
+                
                 if let suggestion {
                     if !suggestion.isSending || !suggestion.comment.isEmpty {
                         commentView
@@ -442,7 +442,7 @@ struct TaskConfigDetailsView: View {
                                                 [themeModel.theme.secAccent1, themeModel.theme.secAccent2])
                         }
                     }
-                    if (viewModel.instance.taskType != .goal || viewModel.instance.id.isEmpty) && (suggestion == nil || !suggestion!.isSending) {
+                    if (suggestion == nil ? (viewModel.instance.taskType != .goal || viewModel.instance.id.isEmpty || toAssign) : !suggestion!.isSending) {
                         Button {
                             if suggestion == nil && !toAssign && !viewModel.instance.id.isEmpty {
                                 if viewModel.instance.isCompleted || !viewModel.isTaskForDate(Date()) {
@@ -461,7 +461,9 @@ struct TaskConfigDetailsView: View {
                                 }
                                 else if toAssign {
                                     if viewModel.instance.id.isEmpty {
-                                        viewModel.instance.id = UUID().uuidString
+                                        let id = UUID().uuidString
+                                        viewModel.instance.id = id
+                                        viewModel.instance.groupId = id
                                     }
                                     showingAssign = true
                                 } else if viewModel.instance.id.isEmpty {
@@ -491,7 +493,7 @@ struct TaskConfigDetailsView: View {
                         .disabled(loading)
                     }
                     
-                    if (viewModel.instance.taskType == .goal ? !viewModel.instance.id.isEmpty : viewModel.instance.isCompleted) || suggestion != nil {
+                    if !viewModel.instance.id.isEmpty && (suggestion != nil || !toAssign) {
                         Button {
                             if let suggestion {
                                 if suggestion.isSending {
@@ -567,7 +569,7 @@ struct TaskConfigDetailsView: View {
             Text("Отмена")
         }
         .sheet(isPresented: $showingAssign) {
-            GrantedUsersView(assignConfig: viewModel.instance)
+            GrantedUsersView(assignConfig: viewModel.getPreparedConfig())
         }
     }
 }

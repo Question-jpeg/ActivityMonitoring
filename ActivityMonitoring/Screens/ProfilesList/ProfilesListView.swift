@@ -35,6 +35,7 @@ struct ProfilesListView: View {
                 }
                 .padding(.horizontal)
                 .padding(.top, 40)
+                .frame(maxWidth: .infinity)
             }
             .navigationTitle("Мониторинг")
             .overlay(alignment: .bottomTrailing) {
@@ -54,7 +55,6 @@ struct ProfilesListView: View {
                 GrantedUsersView()
             }
         }
-        
     }
 }
 

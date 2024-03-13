@@ -26,10 +26,10 @@ class TaskCompletionViewModel: ObservableObject {
         self.mainModel = mainModel
     }
     
-    func initState(task: AppTask?, dismiss: @escaping () -> Void) {
+    func initState(task: AppTask?, showComment: Bool = true, dismiss: @escaping () -> Void) {
         self.dismiss = dismiss
         images = []
-        comment = task?.comment ?? ""
+        comment = showComment ? (task?.comment ?? "") : ""
         createdUrls = task?.imageUrls ?? []
         createdId = task?.id
     }
@@ -47,11 +47,18 @@ class TaskCompletionViewModel: ObservableObject {
                 var appTask = AppTask(id: tempId, completedDate: AppDate.now(), imageUrls: [], comment: comment, progress: 1)
                 mainModel.registerTask(appTask, configId: configId)
                 
-                appTask = try await FirebaseConstants.createTask(configId: configId, images: images, comment: comment)
+                appTask = try await FirebaseConstants.createTask(configId: configId, comment: comment)
                 
                 mainModel.unregisterTask(id: tempId, configId: configId)
                 mainModel.registerTask(appTask, configId: configId)
                 if isSheet { dismiss() }
+                
+                if !images.isEmpty {
+                    let urls = try await FirebaseConstants.uploadTaskImages(configId: configId, id: appTask.id, images: images)
+                    appTask.imageUrls = urls
+                    mainModel.unregisterTask(id: appTask.id, configId: configId)
+                    mainModel.registerTask(appTask, configId: configId)
+                }
             } catch {
                 mainModel.unregisterTask(id: tempId, configId: configId)
                 errorMessage = "Не удалось выполнить задачу"
@@ -78,7 +85,7 @@ class TaskCompletionViewModel: ObservableObject {
         }
     }
     
-    func setTaskProgress(id: String, configId: String, from: Int, value: Int) {
+    func setTaskProgress(id: String, configId: String, from: Int, value: Int, fromComment: String = "", comment: String = "", isSheet: Bool) {
         guard !loadingIds.contains(configId) else { return }
         
         loadingIds.insert(configId)
@@ -87,10 +94,11 @@ class TaskCompletionViewModel: ObservableObject {
             defer { loadingIds.remove(configId); loading = false }
             
             do {
-                mainModel.registerTaskProgress(id: id, configId: configId, value: value)
-                try await FirebaseConstants.updateTaskProgress(id: id, configId: configId, value: value)
+                mainModel.registerTaskProgress(id: id, configId: configId, value: value, comment: comment)
+                try await FirebaseConstants.updateTaskProgress(id: id, configId: configId, value: value, comment: comment)
+                if isSheet { dismiss() }
             } catch {
-                mainModel.registerTaskProgress(id: id, configId: configId, value: from)
+                mainModel.registerTaskProgress(id: id, configId: configId, value: from, comment: fromComment)
                 errorMessage = "Не удалось обновить прогресс трекера"
             }
         }

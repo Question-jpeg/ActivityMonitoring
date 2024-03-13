@@ -14,7 +14,7 @@ struct TaskCompletionDetailsView: View {
     @EnvironmentObject var themeModel: AppThemeModel
     
     @State private var image: UIImage?
-    @State private var showingImagePicker = false
+    @State private var showingCamera = false
     @FocusState private var isFocused: Bool
     
     let config: AppTaskConfig
@@ -29,9 +29,6 @@ struct TaskCompletionDetailsView: View {
     
     var body: some View {
         VStack {
-            Text("Детали")
-                .font(.title)
-            
             VStack(alignment: .leading, spacing: 0) {
                 Text(config.title)
                     .font(.title)
@@ -44,7 +41,7 @@ struct TaskCompletionDetailsView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
             
-            if !isFocused && !config.onlyComment {
+            if !config.onlyComment {
                 TabView {
                     ForEach(0..<(viewModel.createdUrls.isEmpty ?
                                  viewModel.images.count :
@@ -57,16 +54,25 @@ struct TaskCompletionDetailsView: View {
                             Image(uiImage: viewModel.images[i])
                                 .resizable()
                                 .scaledToFit()
+                                .contextMenu {
+                                    Button(role: .destructive) {
+                                        viewModel.images.remove(at: i)
+                                    } label: {
+                                        Text("Удалить")
+                                    }
+                                }
                         }
                     }
                 }
                 .tabViewStyle(.page)
+                .onTapGesture { isFocused = false }
             }
             
-            if viewModel.createdId == nil && editable {
-                if !isFocused && !config.onlyComment {
+            if (config.taskType == .tracker || viewModel.createdId == nil) && editable {
+                if !config.onlyComment {
                     Button {
-                        showingImagePicker = true
+                        showingCamera = true
+                        isFocused = false
                     } label: {
                         Rectangle()
                             .fill(Color(.systemGray6))
@@ -84,6 +90,7 @@ struct TaskCompletionDetailsView: View {
                     isFocused = true
                 } label: {
                     TextEditor(text: $viewModel.comment)
+                        .focused($isFocused)
                         .scrollContentBackground(.hidden)
                         .multilineTextAlignment(.leading)
                         .padding(.horizontal)
@@ -92,10 +99,11 @@ struct TaskCompletionDetailsView: View {
                         ], startPoint: .leading, endPoint: .trailing))
                         .frame(height: 90)
                         .overlay {
-                            Text("Комментарий")
-                                .foregroundStyle(.white)
-                                .padding()
-                                .opacity(viewModel.comment.isEmpty ? 1 : 0)
+                            if viewModel.comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                Text("Комментарий")
+                                    .foregroundStyle(.white)
+                                    .allowsHitTesting(false)
+                            }
                         }
                         .foregroundStyle(.white)
                 }
@@ -116,10 +124,16 @@ struct TaskCompletionDetailsView: View {
                     Button {
                         if !config.onlyComment && viewModel.images.isEmpty {
                             viewModel.errorMessage = "Добавьте фотографии"
-                        } else if config.onlyComment && viewModel.comment.isEmpty {
+                        } else if config.onlyComment && viewModel.comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             viewModel.errorMessage = "Добавьте комментарий"
                         } else {
-                            viewModel.createTask(configId: config.id, isSheet: true)
+                            if let createdId = viewModel.createdId {
+                                viewModel.setTaskProgress(id: createdId, configId: config.id, from: initialTask!.progress, value: initialTask!.progress+1, fromComment: initialTask!.comment, comment: initialTask!.comment.trimmedLineAppended(line: viewModel.comment), isSheet: true)
+                            } else {
+                                if config.taskType == .tracker { viewModel.comment = "".trimmedLineAppended(line: viewModel.comment) }
+                                else { viewModel.comment = viewModel.comment.trimmingCharacters(in: .whitespacesAndNewlines) }
+                                viewModel.createTask(configId: config.id, isSheet: true)
+                            }
                         }
                     } label: {
                         Text("Выполнить")
@@ -141,18 +155,21 @@ struct TaskCompletionDetailsView: View {
                 }
                 .padding(.bottom)
             } else {
-                Text(viewModel.comment)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
-                    .background(LinearGradient(colors:
-                                                [Color(.systemGray), Color(.systemGray3)],
-                                               startPoint: .leading, endPoint: .trailing)
-                    )
-                    .padding(.vertical)
+                if !viewModel.comment.isEmpty {
+                    Text(viewModel.comment)
+                        .multilineTextAlignment(.leading)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(LinearGradient(colors:
+                                                    [Color(.systemGray), Color(.systemGray3)],
+                                                   startPoint: .leading, endPoint: .trailing)
+                        )
+                        .padding(.vertical)
+                }
                 
                 HStack {
-                    if editable {
+                    if editable && config.taskType != .tracker {
                         Button {
                             viewModel.deleteTask(id: viewModel.createdId!, configId: config.id, isSheet: true)
                         } label: {
@@ -185,11 +202,11 @@ struct TaskCompletionDetailsView: View {
             }
         }
         .onAppear {
-            viewModel.initState(task: initialTask, dismiss: { dismiss() })
+            viewModel.initState(task: initialTask, showComment: config.taskType != .tracker || !editable, dismiss: { dismiss() })
         }
         .animation(.default, value: isFocused)
-        .sheet(isPresented: $showingImagePicker) {
-            ImagePicker(image: $image) {
+        .sheet(isPresented: $showingCamera) {
+            ImagePicker(image: $image, sourceType: .camera) {
                 if let uiimage = image {
                     viewModel.images.append(uiimage)
                 }

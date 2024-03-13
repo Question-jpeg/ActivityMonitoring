@@ -231,23 +231,10 @@ struct TaskListView: View {
                 }
                 
                 if taskConfigs.isEmpty {
-                    if !isFinished && !disabled {
-                        Button {
-                            creatingNewTask = true
-                        } label: {
-                            Text("Создать задачу")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .appCardStyle(colors: [themeModel.theme.accent1, themeModel.theme.accent2])
-                                .padding(.horizontal)
-                        }
-                        .frame(height: UIScreen.height - 300)
-                    } else {
-                        Text("Нет задач")
-                            .font(.title)
-                            .foregroundStyle(.secondary)
-                            .frame(height: UIScreen.height - 300)
-                    }
+                    Text("Нет задач")
+                        .font(.title)
+                        .foregroundStyle(.secondary)
+                        .frame(height: UIScreen.height - 300)                
                 }
             }
             .padding(.bottom, disabled ? 30 : 120)
